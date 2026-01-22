@@ -1,3 +1,3 @@
 # sleazyy
 
-## Slot Booking Made Eazyy
+Slot Booking Made Eazyy
