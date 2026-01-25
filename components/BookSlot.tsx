@@ -72,11 +72,11 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
     let warningMsg = '';
 
-    if (formData.eventType === 'co-curricular' && diffDays <= 30) {
+    if (formData.eventType === 'co-curricular' && diffDays < 30) {
       warningMsg = 'Co-curricular events must be booked at least 30 days in advance.';
-    } else if (formData.eventType === 'open-for-all' && diffDays <= 20) {
+    } else if (formData.eventType === 'open-for-all' && diffDays < 20) {
       warningMsg = 'Open-for-All events must be booked at least 20 days in advance.';
-    } else if (formData.eventType === 'closed-club' && diffDays <= 1) {
+    } else if (formData.eventType === 'closed-club' && diffDays < 1) {
       warningMsg = 'Closed club events must be booked at least 1 day in advance.';
     }
 
