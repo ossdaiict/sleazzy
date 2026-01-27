@@ -18,7 +18,7 @@ export interface Club {
 
 export interface User {
   email: string;
-  name: string; // Display name (e.g., "Programming Club" or "SBG Admin")
+  name: string; // Display name (e.g., "Programming Club" or "Sleazzy Admin")
   role: Role;
   group?: ClubGroupType; // Optional, for clubs
 }

@@ -1,28 +1,49 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.065 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.595 0.21 29.23);
-  --primary-foreground: oklch(0.95 0 0);
-  --secondary: oklch(0.18 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.595 0.21 29.23);
-  --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.18 0 0);
-  --input: oklch(0.18 0 0);
-  --ring: oklch(0.595 0.21 29.23);
-  --radius: 0.625rem;
+  /* Black & Dark Blue Theme */
+  /* Background: Pure black */
+  --background: #000000;
+  /* Surface/Card - Very dark gray with slight blue tint */
+  --card: #0A0E1A;
+  --card-foreground: #F9FAFB;
+  /* Popover */
+  --popover: #0A0E1A;
+  --popover-foreground: #F9FAFB;
+  /* Text Primary */
+  --foreground: #F9FAFB;
+  /* Text Secondary */
+  --muted-foreground: #9CA3AF;
+  
+  /* Primary Accent (Dark Blue) - for buttons, active states, links, focus rings */
+  --primary: #1E3A8A; /* Dark blue */
+  --primary-foreground: #F9FAFB;
+  
+  /* Secondary Accent (Darker Blue) - for highlights, selected slots, badges, CTA emphasis */
+  --secondary: #1E40AF; /* Slightly lighter dark blue */
+  --secondary-foreground: #F9FAFB;
+  
+  /* Muted backgrounds - Dark with blue tint */
+  --muted: #0F172A;
+  
+  /* Accent - Dark blue-gray */
+  --accent: #1E293B;
+  --accent-foreground: #F9FAFB;
+  
+  /* Destructive */
+  --destructive: #DC2626;
+  --destructive-foreground: #F9FAFB;
+  
+  /* Borders and Inputs - Dark blue-gray */
+  --border: #1E293B;
+  --input: #1E293B;
+  --ring: #1E3A8A; /* Dark blue for focus rings */
+  
+  /* Border Radius - Soft rounded corners */
+  --radius: 1rem; /* rounded-2xl = 1rem */
 }
 
 @theme inline {
@@ -55,9 +76,54 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
   body {
     @apply bg-background text-foreground;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-variation-settings: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Enhanced Typography Scale */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  
+  h1 {
+    @apply text-4xl sm:text-5xl;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  
+  h2 {
+    @apply text-3xl sm:text-4xl;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+  
+  h3 {
+    @apply text-2xl sm:text-3xl;
+    line-height: 1.3;
+  }
+  
+  h4 {
+    @apply text-xl sm:text-2xl;
+    line-height: 1.4;
+  }
+  
+  /* Better text contrast and readability */
+  p {
+    @apply leading-relaxed;
+    line-height: 1.6;
+  }
+  
+  /* Improved focus states */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
   }
 }
 
@@ -70,13 +136,13 @@
   }
 }
 
-/* React Day Picker Styles */
+/* React Day Picker Styles - Black & Dark Blue Theme */
 .rdp {
-  --rdp-cell-size: 40px;
-  --rdp-accent-color: hsl(var(--primary));
-  --rdp-background-color: hsl(var(--accent));
-  --rdp-accent-color-dark: hsl(var(--primary));
-  --rdp-background-color-dark: hsl(var(--accent));
+  --rdp-cell-size: 2.5rem;
+  --rdp-accent-color: #1E3A8A; /* Dark blue for primary selection */
+  --rdp-background-color: #0A0E1A; /* Card color */
+  --rdp-accent-color-dark: #1E40AF; /* Darker blue for highlights */
+  --rdp-background-color-dark: #0A0E1A;
   --rdp-outline: 2px solid var(--rdp-accent-color);
   --rdp-outline-selected: 3px solid var(--rdp-accent-color);
   margin: 0;
@@ -91,22 +157,25 @@
 
 .rdp-button {
   border: 2px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .rdp-button[disabled] {
-  opacity: 0.25;
+  opacity: 0.3;
 }
 
 .rdp-button:hover:not([disabled]) {
-  background-color: hsl(var(--accent));
+  background-color: #1E293B;
+  color: #1E40AF;
 }
 
 .rdp-day_selected,
 .rdp-day_selected:focus-visible,
 .rdp-day_selected:hover {
-  color: hsl(var(--primary-foreground));
+  color: #F9FAFB;
   opacity: 1;
-  background-color: hsl(var(--primary));
+  background-color: #1E3A8A; /* Dark blue for selected */
+  box-shadow: none; /* Subtle borders, not heavy shadows */
 }
 
 @keyframes accordion-down {

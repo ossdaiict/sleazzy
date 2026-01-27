@@ -56,6 +56,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify(values)
       // });
+      // 
+      // if (!response.ok) {
+      //   throw new Error('Login failed');
+      // }
+      // 
       // const user = await response.json();
       // onLogin(user);
       
@@ -67,10 +72,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-      {/* Background glow effect */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary/5 blur-3xl" />
+      {/* Subtle background effect - minimal */}
+      <div className="absolute inset-0 overflow-hidden opacity-30">
+        <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
       </div>
 
       <motion.div
@@ -79,26 +84,26 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         transition={{ duration: 0.5 }}
         className="relative z-10 w-full max-w-md"
       >
-        <Card className="border-border/40 bg-card/40 backdrop-blur-md shadow-2xl">
+        <Card className="border border-border bg-card">
           {/* Header */}
-          <CardHeader className="bg-primary/10 border-b border-border/40 pb-8 pt-8 text-center">
+          <CardHeader className="border-b border-border pb-8 pt-8 text-center">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="w-16 h-16 bg-primary/20 rounded-xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-primary/30"
+              className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/20"
             >
-              <ShieldCheck size={32} className="text-primary" />
+              <ShieldCheck size={28} className="text-primary" />
             </motion.div>
-            <CardTitle className="text-2xl font-bold text-foreground">Sleazzy</CardTitle>
-            <CardDescription className="text-muted-foreground mt-2">
+            <CardTitle className="text-3xl font-bold text-foreground tracking-tight">Sleazzy</CardTitle>
+            <CardDescription className="text-muted-foreground mt-2 text-base font-medium">
               Slot Booking Made Easy
             </CardDescription>
           </CardHeader>
 
         {/* Form */}
-        <CardContent className="p-8">
-          <h2 className="text-xl font-bold text-foreground mb-6">
+        <CardContent className="p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-foreground mb-6 tracking-tight">
             {isRegistering ? 'Club Registration' : 'Welcome Back'}
           </h2>
 
@@ -115,7 +120,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <Mail size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10" />
                         <Input
                           type="email"
-                          className="pl-10 bg-background/50 border-border/40"
+                          className="pl-10"
                           placeholder="name@university.edu"
                           {...field}
                         />
@@ -137,7 +142,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <Lock size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10" />
                         <Input
                           type="password"
-                          className="pl-10 bg-background/50 border-border/40"
+                          className="pl-10"
                           placeholder="••••••••"
                           {...field}
                         />
@@ -168,16 +173,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               {isRegistering ? 'Already have an account?' : "Don't have an account?"}
-              <button
+              <Button
+                type="button"
+                variant="link"
                 onClick={() => { 
                   setIsRegistering(!isRegistering); 
                   setError('');
                   form.reset();
                 }}
-                className="ml-1 text-primary font-medium hover:underline focus:outline-none"
+                className="ml-1 h-auto p-0 text-primary font-medium hover:underline"
               >
                 {isRegistering ? 'Sign In' : 'Register Club'}
-              </button>
+              </Button>
             </p>
           </div>
 

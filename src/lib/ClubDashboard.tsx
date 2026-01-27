@@ -74,8 +74,8 @@ const ClubDashboard: React.FC = () => {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome, Programming Club</h2>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Manage your events and venue bookings efficiently.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">Welcome, Programming Club</h2>
+          <p className="text-muted-foreground mt-2 text-base sm:text-lg font-medium">Manage your events and venue bookings efficiently.</p>
         </div>
         <Button 
           asChild
@@ -96,8 +96,8 @@ const ClubDashboard: React.FC = () => {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="lg:col-span-2"
         >
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md">
-            <CardHeader className="border-b border-border/40">
+          <Card className="border border-border">
+            <CardHeader className="border-b border-border">
               <CardTitle className="text-lg sm:text-xl">Global Event Schedule</CardTitle>
             </CardHeader>
           
@@ -112,15 +112,15 @@ const ClubDashboard: React.FC = () => {
                   modifiers={{
                     hasEvents: eventDates
                   }}
-                  modifiersClassNames={{
-                    hasEvents: "relative after:absolute after:bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary"
+                  modifierClassNames={{
+                    hasEvents: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-2 after:h-2 after:rounded-full after:bg-primary after:shadow-lg after:shadow-primary/50"
                   }}
-                  className="rounded-md border-0"
+                  className="rounded-2xl"
                 />
               </div>
 
               {/* Selected Date Details */}
-              <div className="md:w-64 border-t md:border-t-0 md:border-l border-border/40 md:pl-6 pt-4 md:pt-0 flex flex-col">
+              <div className="md:w-64 border-t md:border-t-0 md:border-l border-border/80 md:pl-6 pt-4 md:pt-0 flex flex-col">
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                   {selectedDate ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Select a date'}
                 </h4>
@@ -134,16 +134,16 @@ const ClubDashboard: React.FC = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2, delay: index * 0.05 }}
                       >
-                        <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                          <CardContent className="p-3">
-                          <div className="font-medium text-foreground text-sm">{event.eventName}</div>
-                          <div className="text-xs text-primary mt-0.5">{event.clubName}</div>
+                        <Card className="border border-border hover:border-primary/40 transition-colors">
+                          <CardContent className="p-4">
+                          <div className="font-semibold text-foreground text-sm mb-1">{event.eventName}</div>
+                          <div className="text-xs text-primary font-medium mt-0.5 mb-2">{event.clubName}</div>
                           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock size={12} />
+                            <Clock size={12} className="text-primary/60" />
                             <span>{event.startTime} - {event.endTime}</span>
                           </div>
-                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                            <MapPin size={12} />
+                          <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                            <MapPin size={12} className="text-primary/60" />
                             <span>{getVenueName(event.venueId)}</span>
                           </div>
                         </CardContent>
@@ -170,8 +170,8 @@ const ClubDashboard: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md">
-            <CardHeader className="border-b border-border/40">
+          <Card className="border border-border">
+            <CardHeader className="border-b border-border">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">My Club Events</CardTitle>
               <Button variant="ghost" size="sm" asChild>
@@ -187,7 +187,7 @@ const ClubDashboard: React.FC = () => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="p-4 hover:bg-card/40 transition-colors"
+                  className="p-4 hover:bg-muted transition-colors"
                 >
                   <div className="font-semibold text-foreground text-sm">{event.eventName}</div>
                   <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
@@ -227,7 +227,7 @@ const ClubDashboard: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
       >
-        <Alert variant="info" className="border-primary/50 bg-primary/5 backdrop-blur-sm">
+        <Alert variant="info" className="border-primary/40 bg-primary/5">
         <Info className="h-4 w-4" />
         <AlertTitle>Booking Policy Reminder</AlertTitle>
         <AlertDescription className="mt-1">

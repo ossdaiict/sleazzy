@@ -14,10 +14,10 @@ const PolicyPage: React.FC = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center pb-6 border-b border-border/40"
+        className="text-center pb-6 border-b border-border"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">SBG Slot Booking Policy</h1>
-        <p className="text-muted-foreground mt-2 text-sm sm:text-base">Guidelines for Venue Reservation and Conduct</p>
+        <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">Sleazzy Slot Booking Policy</h1>
+        <p className="text-muted-foreground mt-2 text-base sm:text-lg font-medium">Guidelines for Venue Reservation and Conduct</p>
       </motion.div>
 
       <Accordion type="single" collapsible defaultValue="item-0" className="space-y-4">
@@ -26,7 +26,7 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <AccordionItem value="item-0" className="border-border/40 rounded-lg border bg-card/40 backdrop-blur-md">
+          <AccordionItem value="item-0" className="border border-border rounded-2xl bg-card">
           <AccordionTrigger className="px-5 py-4 hover:no-underline">
             <div className="flex items-center gap-3">
               <Clock className="text-primary" size={20} />
@@ -49,7 +49,7 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <AccordionItem value="item-1" className="border-border/40 rounded-lg border bg-card/40 backdrop-blur-md">
+          <AccordionItem value="item-1" className="border border-border rounded-2xl bg-card">
           <AccordionTrigger className="px-5 py-4 hover:no-underline">
             <div className="flex items-center gap-3">
               <ShieldAlert className="text-primary" size={20} />
@@ -72,7 +72,7 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <AccordionItem value="item-2" className="border-border/40 rounded-lg border bg-card/40 backdrop-blur-md">
+          <AccordionItem value="item-2" className="border border-border rounded-2xl bg-card">
           <AccordionTrigger className="px-5 py-4 hover:no-underline">
             <div className="flex items-center gap-3">
               <FileText className="text-primary" size={20} />
@@ -81,7 +81,7 @@ const PolicyPage: React.FC = () => {
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5 pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+              <Card className="border border-border">
                 <CardHeader>
                   <CardTitle className="text-base">Category A (Auto-Approval)</CardTitle>
                   <CardDescription className="text-xs">CEP Rooms, OAT, Ground, Cafeteria</CardDescription>
@@ -90,13 +90,13 @@ const PolicyPage: React.FC = () => {
                   <p className="text-sm text-muted-foreground">Bookings are automatically confirmed if the slot is vacant and timeline rules are met. No manual intervention required.</p>
                 </CardContent>
               </Card>
-              <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+              <Card className="border border-border">
                 <CardHeader>
                   <CardTitle className="text-base">Category B (Restricted)</CardTitle>
                   <CardDescription className="text-xs">Lecture Theatres (LT), CEP 110, CEP 102</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">Always requires manual approval from the SBG Convener and Faculty Mentor. Pending status applies until approved.</p>
+                  <p className="text-sm text-muted-foreground">Always requires manual approval from the Sleazzy Convener and Faculty Mentor. Pending status applies until approved.</p>
                 </CardContent>
               </Card>
             </div>
@@ -109,7 +109,7 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
         >
-          <AccordionItem value="item-3" className="border-border/40 rounded-lg border bg-card/40 backdrop-blur-md">
+          <AccordionItem value="item-3" className="border border-border rounded-2xl bg-card">
           <AccordionTrigger className="px-5 py-4 hover:no-underline">
             <div className="flex items-center gap-3">
               <Users className="text-primary" size={20} />
@@ -125,13 +125,13 @@ const PolicyPage: React.FC = () => {
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold text-purple-400 mb-2 border-b border-purple-400/30 pb-1">Group B (Cultural)</h4>
+                <h4 className="font-bold text-secondary mb-2 border-b border-secondary/30 pb-1">Group B (Cultural)</h4>
                 <ul className="space-y-1 text-xs text-muted-foreground">
                   {getClubsByGroup('B').map(c => <li key={c.name}>{c.name}</li>)}
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold text-green-400 mb-2 border-b border-green-400/30 pb-1">Group C (Sports)</h4>
+                <h4 className="font-bold text-primary mb-2 border-b border-primary/30 pb-1">Group C (Sports)</h4>
                 <ul className="space-y-1 text-xs text-muted-foreground">
                   {getClubsByGroup('C').map(c => <li key={c.name}>{c.name}</li>)}
                 </ul>

@@ -58,21 +58,21 @@ const MyBookings: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">My Bookings</h2>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Manage current reservations and submit post-event reports.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">My Bookings</h2>
+          <p className="text-muted-foreground mt-2 text-base sm:text-lg font-medium">Manage current reservations and submit post-event reports.</p>
         </div>
       </div>
 
       {isLoading ? (
         <div className="grid gap-4 sm:gap-6">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="border-border/40 bg-card/40 backdrop-blur-md p-4 sm:p-6">
+            <Card key={i} className="border border-border p-4 sm:p-6">
               <Skeleton className="h-24 w-full" />
             </Card>
           ))}
         </div>
       ) : myBookings.length === 0 ? (
-        <Card className="border-border/40 bg-card/40 backdrop-blur-md p-12 text-center">
+        <Card className="border border-border p-12 text-center">
           <p className="text-muted-foreground">No bookings found.</p>
         </Card>
       ) : (
@@ -89,18 +89,17 @@ const MyBookings: React.FC = () => {
             >
               <Card 
                 className={cn(
-                  "border-border/40 bg-card/40 backdrop-blur-md flex flex-col md:flex-row gap-4 sm:gap-6 p-4 sm:p-6 hover:border-primary/50 transition-all duration-300 group relative overflow-hidden",
+                  "border border-border flex flex-col md:flex-row gap-4 sm:gap-6 p-4 sm:p-6 hover:border-primary/40 transition-colors",
                   isPast ? '' : ''
                 )}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative z-10 flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
+                <div className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
                   {/* Date Box */}
                   <div className={cn(
-                    "w-full md:w-24 h-24 rounded-xl flex flex-col items-center justify-center shrink-0 border",
+                    "w-full md:w-24 h-24 rounded-2xl flex flex-col items-center justify-center shrink-0 border",
                     isPast 
                       ? 'bg-muted border-border text-muted-foreground' 
-                      : 'bg-primary/10 border-primary/30 text-primary'
+                      : 'bg-primary/10 border-primary/20 text-primary'
                   )}>
                     <span className="text-xs font-bold uppercase">
                       {new Date(booking.date).toLocaleDateString('en-US', { month: 'short' })}
@@ -146,7 +145,7 @@ const MyBookings: React.FC = () => {
 
                     {/* Post Event Actions */}
                     {isPast && booking.status === 'approved' && (
-                      <div className="mt-6 pt-4 border-t border-border/40 flex flex-wrap gap-3">
+                      <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-3">
                         <Button 
                           variant="outline"
                           size="sm"

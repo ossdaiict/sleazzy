@@ -51,8 +51,8 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Admin Dashboard</h2>
-        <p className="text-muted-foreground mt-1 text-sm sm:text-base">Overview of venue requests and system status.</p>
+        <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">Admin Dashboard</h2>
+        <p className="text-muted-foreground mt-2 text-base sm:text-lg font-medium">Overview of venue requests and system status.</p>
       </div>
 
       {/* Key Metrics */}
@@ -62,16 +62,15 @@ const AdminDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0 }}
         >
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md hover:border-primary/50 transition-all duration-300 group relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardContent className="p-4 sm:p-6 relative z-10">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-muted-foreground">Pending</div>
-                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+          <Card className="border border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Pending</div>
+                <div className="p-2 bg-primary/10 text-primary rounded-2xl border border-primary/20">
                   <AlertCircle size={18} />
                 </div>
               </div>
-              <div className="mt-4 text-2xl sm:text-3xl font-bold text-foreground">{pendingRequests.length}</div>
+              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">{pendingRequests.length}</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -80,16 +79,15 @@ const AdminDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md hover:border-primary/50 transition-all duration-300 group relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardContent className="p-4 sm:p-6 relative z-10">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-muted-foreground">Scheduled</div>
-                <div className="p-2 bg-primary/10 text-primary rounded-lg border border-primary/20">
+          <Card className="border border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Scheduled</div>
+                <div className="p-2 bg-primary/10 text-primary rounded-2xl border border-primary/20">
                   <Calendar size={18} />
                 </div>
               </div>
-              <div className="mt-4 text-2xl sm:text-3xl font-bold text-foreground">12</div>
+              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">12</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -98,16 +96,15 @@ const AdminDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md hover:border-primary/50 transition-all duration-300 group relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardContent className="p-4 sm:p-6 relative z-10">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-muted-foreground">Conflicts</div>
-                <div className="p-2 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
+          <Card className="border border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Conflicts</div>
+                <div className="p-2 bg-destructive/10 text-destructive rounded-2xl border border-destructive/20">
                   <XCircle size={18} />
                 </div>
               </div>
-              <div className="mt-4 text-2xl sm:text-3xl font-bold text-foreground">0</div>
+              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">0</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -116,16 +113,15 @@ const AdminDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md hover:border-primary/50 transition-all duration-300 group relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <CardContent className="p-4 sm:p-6 relative z-10">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-muted-foreground">Active Clubs</div>
-                <div className="p-2 bg-green-500/10 text-green-400 rounded-lg border border-green-500/20">
+          <Card className="border border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Active Clubs</div>
+                <div className="p-2 bg-primary/10 text-primary rounded-2xl border border-primary/20">
                   <CheckCircle size={18} />
                 </div>
               </div>
-              <div className="mt-4 text-2xl sm:text-3xl font-bold text-foreground">34</div>
+              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">34</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -137,8 +133,8 @@ const AdminDashboard: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
       >
-        <Card className="border-border/40 bg-card/40 backdrop-blur-md">
-          <CardHeader className="border-b border-border/40 bg-card/40">
+        <Card className="border border-border">
+          <CardHeader className="border-b border-border">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-lg sm:text-xl">Pending Requests</CardTitle>
@@ -169,7 +165,7 @@ const AdminDashboard: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="p-4 sm:p-6 hover:bg-card/40 transition-colors"
+                className="p-4 sm:p-6 hover:bg-muted transition-colors"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
                   <div className="flex-1">
