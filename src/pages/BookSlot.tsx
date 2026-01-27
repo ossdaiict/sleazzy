@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Clock, 
   Users, 
   MapPin, 
@@ -15,15 +15,53 @@ import { CLUBS, VENUES } from '../constants';
 import { EventType, ClubGroupType, User } from '../types';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Separator } from '../components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Calendar } from '../components/ui/calendar';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '../components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { cn } from '@/lib/utils';
 
 interface BookSlotProps {
   currentUser: User;
 }
+
+// Generate time options for Select dropdowns
+const generateTimeOptions = () => {
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = ['00', '15', '30', '45'];
+  const options: string[] = [];
+  
+  hours.forEach(hour => {
+    minutes.forEach(minute => {
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute}`;
+      const displayTime = new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      options.push(timeString);
+    });
+  });
+  
+  return options;
+};
+
+const TIME_OPTIONS = generateTimeOptions();
 
 const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const [formData, setFormData] = useState({
@@ -36,6 +74,9 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     endTime: '',
     venueId: ''
   });
+
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   const [warnings, setWarnings] = useState({
     timeline: '',
@@ -50,6 +91,22 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
       setFormData(prev => ({ ...prev, clubName: currentUser.name }));
     }
   }, [currentUser]);
+
+  // Handle date selection from Calendar
+  useEffect(() => {
+    if (selectedDate) {
+      const dateString = selectedDate.toISOString().split('T')[0];
+      handleChange('date', dateString);
+      setDatePickerOpen(false);
+    }
+  }, [selectedDate]);
+
+  // Parse date string to Date object for Calendar
+  useEffect(() => {
+    if (formData.date) {
+      setSelectedDate(new Date(formData.date));
+    }
+  }, [formData.date]);
 
   const getClubGroup = (name: string): ClubGroupType | undefined => {
     if (name === currentUser.name && currentUser.group) {
@@ -95,7 +152,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     if (category === 'B') {
       setWarnings(prev => ({
         ...prev,
-        venue: 'Category B Venue: Requires SBG Convener & Faculty Approval.',
+        venue: 'Category B Venue: Requires Sleazzy Convener & Faculty Approval.',
         venueType: 'warning'
       }));
     } else {
@@ -201,13 +258,13 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="border-border/40 bg-card/40 backdrop-blur-md">
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <Calendar className="text-primary" />
+        <Card className="border border-border">
+          <CardHeader className="border-b border-border pb-6">
+            <CardTitle className="text-2xl flex items-center gap-3 font-bold tracking-tight">
+              <CalendarIcon className="text-primary" size={24} />
               Book a Venue Slot
             </CardTitle>
-            <CardDescription>Fill in the details to request a venue for your club event.</CardDescription>
+            <CardDescription className="mt-2 text-base">Fill in the details to request a venue for your club event.</CardDescription>
           </CardHeader>
 
           <CardContent className="p-6 sm:p-8">
@@ -218,12 +275,12 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Event Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-sm font-medium text-foreground">Event Name</label>
+                  <Label htmlFor="eventName">Event Name</Label>
                   <Input
+                    id="eventName"
                     type="text"
                     name="eventName"
                     required
-                    className="bg-background/50 border-border/40"
                     placeholder="e.g. Intro to Machine Learning"
                     value={formData.eventName}
                     onChange={(e) => handleChange('eventName', e.target.value)}
@@ -231,10 +288,10 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Event Type</label>
+                  <Label htmlFor="eventType">Event Type</Label>
                   <Select value={formData.eventType} onValueChange={(v) => handleChange('eventType', v)}>
-                    <SelectTrigger className="bg-background/50 border-border/40">
-                      <SelectValue />
+                    <SelectTrigger id="eventType" className="w-full">
+                      <SelectValue placeholder="Select event type" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="closed-club">Closed Club Event</SelectItem>
@@ -245,35 +302,50 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Expected Attendees</label>
+                  <Label>Expected Attendees</Label>
                   <div className="relative">
-                    <Users size={18} className="absolute left-3 top-2.5 text-muted-foreground" />
-                    <Input
-                      type="number"
-                      name="expectedAttendees"
-                      required
-                      className="pl-10 bg-background/50 border-border/40"
-                      placeholder="0"
-                      value={formData.expectedAttendees}
-                      onChange={(e) => handleChange('expectedAttendees', e.target.value)}
-                    />
+                    <Users size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10 pointer-events-none" />
+                    <Select 
+                      value={formData.expectedAttendees} 
+                      onValueChange={(v) => handleChange('expectedAttendees', v)}
+                    >
+                      <SelectTrigger className="w-full pl-10">
+                        <SelectValue placeholder="Select expected attendees" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="0">0 - No attendees</SelectItem>
+                        <SelectItem value="10">1-10 attendees</SelectItem>
+                        <SelectItem value="25">11-25 attendees</SelectItem>
+                        <SelectItem value="50">26-50 attendees</SelectItem>
+                        <SelectItem value="75">51-75 attendees</SelectItem>
+                        <SelectItem value="100">76-100 attendees</SelectItem>
+                        <SelectItem value="150">101-150 attendees</SelectItem>
+                        <SelectItem value="200">151-200 attendees</SelectItem>
+                        <SelectItem value="250">201-250 attendees</SelectItem>
+                        <SelectItem value="300">251-300 attendees</SelectItem>
+                        <SelectItem value="400">301-400 attendees</SelectItem>
+                        <SelectItem value="500">401-500 attendees</SelectItem>
+                        <SelectItem value="500+">500+ attendees</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
             </div>
 
-            <hr className="border-border/40" />
+            <Separator />
 
             {/* Section 2: Organizer & Timing */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Logistics</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-sm font-medium text-foreground">Organizing Club</label>
+                  <Label htmlFor="clubName">Organizing Club</Label>
                   {currentUser.role === 'club' ? (
                     <div className="relative">
                       <Lock size={18} className="absolute left-3 top-2.5 text-muted-foreground" />
                       <Input 
+                        id="clubName"
                         type="text" 
                         readOnly
                         value={formData.clubName}
@@ -283,7 +355,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                     </div>
                   ) : (
                     <Select value={formData.clubName} onValueChange={(v) => handleChange('clubName', v)}>
-                      <SelectTrigger className="bg-background/50 border-border/40">
+                      <SelectTrigger id="clubName" className="w-full">
                         <SelectValue placeholder="Select a Club..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -298,21 +370,46 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-sm font-medium text-foreground">Date</label>
-                  <div className="relative">
-                    <Calendar size={18} className="absolute left-3 top-2.5 text-muted-foreground" />
-                    <Input
-                      type="date"
-                      name="date"
-                      required
-                      className={cn(
-                        "pl-10 bg-background/50 border-border/40",
-                        warnings.timeline && "border-destructive"
-                      )}
-                      value={formData.date}
-                      onChange={(e) => handleChange('date', e.target.value)}
-                    />
-                  </div>
+                  <Label>Date</Label>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <div className="relative">
+                        <CalendarIcon size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10 pointer-events-none" />
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal pl-10",
+                            !formData.date && "text-muted-foreground",
+                            warnings.timeline && "border-destructive"
+                          )}
+                        >
+                          {formData.date ? (
+                            new Date(formData.date).toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                        </Button>
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        initialFocus
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {warnings.timeline && (
                     <Alert variant="destructive" className="mt-2">
                       <AlertTriangle size={14} />
@@ -322,38 +419,66 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Start Time</label>
+                  <Label>Start Time</Label>
                   <div className="relative">
-                    <Clock size={18} className="absolute left-3 top-2.5 text-muted-foreground" />
-                    <Input
-                      type="time"
-                      name="startTime"
-                      required
-                      className={cn(
-                        "pl-10 bg-background/50 border-border/40",
+                    <Clock size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10 pointer-events-none" />
+                    <Select 
+                      value={formData.startTime} 
+                      onValueChange={(v) => handleChange('startTime', v)}
+                    >
+                      <SelectTrigger className={cn(
+                        "w-full pl-10",
                         warnings.hours && "border-destructive"
-                      )}
-                      value={formData.startTime}
-                      onChange={(e) => handleChange('startTime', e.target.value)}
-                    />
+                      )}>
+                        <SelectValue placeholder="Select start time" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {TIME_OPTIONS.map((time) => {
+                          const displayTime = new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          });
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {displayTime}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">End Time</label>
+                  <Label>End Time</Label>
                   <div className="relative">
-                    <Clock size={18} className="absolute left-3 top-2.5 text-muted-foreground" />
-                    <Input
-                      type="time"
-                      name="endTime"
-                      required
-                      className={cn(
-                        "pl-10 bg-background/50 border-border/40",
+                    <Clock size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10 pointer-events-none" />
+                    <Select 
+                      value={formData.endTime} 
+                      onValueChange={(v) => handleChange('endTime', v)}
+                    >
+                      <SelectTrigger className={cn(
+                        "w-full pl-10",
                         warnings.hours && "border-destructive"
-                      )}
-                      value={formData.endTime}
-                      onChange={(e) => handleChange('endTime', e.target.value)}
-                    />
+                      )}>
+                        <SelectValue placeholder="Select end time" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {TIME_OPTIONS.map((time) => {
+                          const displayTime = new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          });
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {displayTime}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -378,17 +503,17 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
               </div>
             </div>
 
-            <hr className="border-border/40" />
+            <Separator />
 
             {/* Section 3: Venue */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Venue Selection</h3>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Preferred Venue</label>
+                <Label htmlFor="venueId">Preferred Venue</Label>
                 <div className="relative">
-                  <MapPin size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10" />
+                  <MapPin size={18} className="absolute left-3 top-2.5 text-muted-foreground z-10 pointer-events-none" />
                   <Select value={formData.venueId} onValueChange={(v) => handleChange('venueId', v)}>
-                    <SelectTrigger className="pl-10 bg-background/50 border-border/40">
+                    <SelectTrigger id="venueId" className="w-full pl-10">
                       <SelectValue placeholder="Select a Venue..." />
                     </SelectTrigger>
                     <SelectContent>

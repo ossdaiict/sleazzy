@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   CalendarPlus, 
@@ -9,14 +9,14 @@ import {
   ShieldCheck,
   Menu,
   Bell,
-  UserCircle,
   LogOut,
   ClipboardList,
   Layers,
-  X
 } from 'lucide-react';
 import { User } from '../types';
 import { Button } from '../components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 interface LayoutProps {
@@ -33,7 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium",
       isActive
         ? "bg-primary text-primary-foreground shadow-lg"
-        : "text-muted-foreground hover:bg-card/40 hover:text-foreground"
+        : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
     );
 
   const renderNavLinks = () => {
@@ -87,17 +87,17 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-card/40 backdrop-blur-md border-r border-border/40 fixed h-full z-10">
+      <aside className="hidden md:flex flex-col w-64 bg-card border-r border-border fixed h-full z-10">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="p-6 border-b border-border/40 flex items-center gap-3"
+          className="p-6 border-b border-border flex items-center gap-3"
         >
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg">
+          <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground font-bold text-lg border border-primary/20">
             S
           </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">SBG Portal</span>
+          <span className="text-xl font-bold text-foreground tracking-tight">Sleazzy</span>
         </motion.div>
         
         <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
@@ -108,12 +108,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="p-4 border-t border-border/40"
+          className="p-4 border-t border-border"
         >
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-card/40 backdrop-blur-sm border border-border/40">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <UserCircle size={24} className="text-primary" />
-            </div>
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted border border-border">
+            <Avatar className="h-10 w-10 border border-primary/20">
+              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                {user.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">
                 {user.name}
@@ -129,7 +131,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       {/* Main Content */}
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="bg-card/40 backdrop-blur-md border-b border-border/40 sticky top-0 z-20 px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
+        <header className="bg-card border-b border-border sticky top-0 z-20 px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost"
@@ -139,7 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             >
               <Menu size={24} />
             </Button>
-            <h1 className="text-lg font-semibold text-foreground hidden sm:block">
+            <h1 className="text-xl font-semibold text-foreground hidden sm:block tracking-tight">
               {user.role === 'club' ? 'Club Portal' : 'Administration'}
             </h1>
           </div>
@@ -147,7 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           <div className="flex items-center gap-2 sm:gap-4">
             <Button variant="ghost" size="icon" className="relative">
               <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full"></span>
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-destructive rounded-full border-2 border-card" />
             </Button>
             <Button 
               variant="ghost"
@@ -168,61 +170,41 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </main>
       </div>
       
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-40 md:hidden">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-background/80 backdrop-blur-sm" 
-              onClick={() => setIsMobileMenuOpen(false)}
-            ></motion.div>
-            <motion.div 
-              initial={{ x: -300 }}
-              animate={{ x: 0 }}
-              exit={{ x: -300 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-64 bg-card/40 backdrop-blur-md border-r border-border/40 shadow-xl flex flex-col z-50"
-            >
-            <div className="p-6 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg">
-                  S
-                </div>
-                <span className="text-xl font-bold text-foreground">SBG Portal</span>
+      {/* Mobile Sidebar */}
+      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <SheetContent side="left" className="w-64 p-0 flex flex-col bg-card border-r border-border">
+          <SheetHeader className="p-6 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground font-bold text-lg border border-primary/20">
+                S
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <X size={20} />
-              </Button>
+              <SheetTitle className="text-xl font-bold text-foreground">Sleazzy</SheetTitle>
             </div>
-            <nav className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
-              {renderNavLinks()}
-            </nav>
-            <div className="p-4 border-t border-border">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <UserCircle size={24} className="text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user.role === 'club' ? `Group ${user.group}` : 'Administrator'}
-                  </p>
-                </div>
+          </SheetHeader>
+          
+          <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
+            {renderNavLinks()}
+          </nav>
+          
+          <div className="p-4 border-t border-border">
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted border border-border">
+              <Avatar className="h-10 w-10 border border-primary/20">
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                  {user.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {user.name}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.role === 'club' ? `Group ${user.group}` : 'Administrator'}
+                </p>
               </div>
             </div>
-          </motion.div>
-        </div>
-        )}
-      </AnimatePresence>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

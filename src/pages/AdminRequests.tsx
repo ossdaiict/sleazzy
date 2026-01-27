@@ -70,8 +70,8 @@ const AdminRequests: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Request Management</h2>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Review and take action on venue booking requests.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">Request Management</h2>
+          <p className="text-muted-foreground mt-2 text-base sm:text-lg font-medium">Review and take action on venue booking requests.</p>
         </div>
         
         {/* Search */}
@@ -80,7 +80,7 @@ const AdminRequests: React.FC = () => {
           <Input 
             type="text" 
             placeholder="Search requests..." 
-            className="pl-10 w-full sm:w-64 bg-background/50 border-border/40"
+            className="pl-10 w-full sm:w-64"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -98,7 +98,7 @@ const AdminRequests: React.FC = () => {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
-          <Card className="border-border/40 bg-card/40 backdrop-blur-md">
+          <Card className="border border-border">
             {isLoading ? (
               <CardContent className="p-6">
                 <Skeleton className="h-12 w-full mb-4" />
@@ -108,7 +108,7 @@ const AdminRequests: React.FC = () => {
             ) : filteredRequests.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-card/40 border-b border-border/40 uppercase tracking-wider text-xs font-semibold text-muted-foreground">
+                  <thead className="bg-muted border-b border-border uppercase tracking-wider text-xs font-semibold text-muted-foreground">
                     <tr>
                       <th className="px-4 sm:px-6 py-4">Club / Event</th>
                       <th className="px-4 sm:px-6 py-4 hidden sm:table-cell">Venue & Time</th>
@@ -124,7 +124,7 @@ const AdminRequests: React.FC = () => {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="hover:bg-card/40 transition-colors"
+                        className="hover:bg-muted transition-colors"
                       >
                         <td className="px-4 sm:px-6 py-4">
                           <div className="font-semibold text-foreground">{req.eventName}</div>

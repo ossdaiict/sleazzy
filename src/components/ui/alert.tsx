@@ -3,19 +3,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const alertVariants = cva(
-  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
+  "relative w-full rounded-2xl border border-border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
   {
     variants: {
       variant: {
-        default: "bg-background text-foreground",
+        default: "bg-card text-foreground",
         destructive:
-          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+          "border-destructive/40 bg-destructive/5 text-destructive [&>svg]:text-destructive",
         warning:
-          "border-amber-500/50 bg-amber-500/10 text-amber-400 [&>svg]:text-amber-400",
+          "border-secondary/40 bg-secondary/5 text-secondary [&>svg]:text-secondary",
         success:
-          "border-green-500/50 bg-green-500/10 text-green-400 [&>svg]:text-green-400",
+          "border-primary/40 bg-primary/5 text-primary [&>svg]:text-primary",
         info:
-          "border-blue-500/50 bg-blue-500/10 text-blue-400 [&>svg]:text-blue-400",
+          "border-primary/40 bg-primary/5 text-primary [&>svg]:text-primary",
       },
     },
     defaultVariants: {

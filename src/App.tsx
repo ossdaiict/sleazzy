@@ -23,16 +23,55 @@ const PlaceholderPage: React.FC<{ title: string; icon?: React.ReactNode }> = ({ 
 );
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // In dev mode, auto-login with a default user (can be changed via localStorage)
+  const getDefaultUser = (): User => {
+    if (import.meta.env.DEV) {
+      // Check if user preference is stored in localStorage
+      const storedRole = localStorage.getItem('dev_user_role') as Role | null;
+      const storedName = localStorage.getItem('dev_user_name') || 'Programming Club';
+      
+      if (storedRole === 'admin') {
+        return {
+          email: 'admin@university.edu',
+          name: 'SBG Admin',
+          role: 'admin',
+        };
+      }
+      
+      return {
+        email: 'club@university.edu',
+        name: storedName,
+        role: 'club',
+        group: 'A',
+      };
+    }
+    return null as any;
+  };
+
+  const [user, setUser] = useState<User | null>(
+    import.meta.env.DEV ? getDefaultUser() : null
+  );
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
+    if (import.meta.env.DEV) {
+      // Store preference in dev mode
+      localStorage.setItem('dev_user_role', loggedInUser.role);
+      if (loggedInUser.name) {
+        localStorage.setItem('dev_user_name', loggedInUser.name);
+      }
+    }
   };
 
   const handleLogout = () => {
-    setUser(null);
-    // TODO: Call logout API endpoint if needed
-    // await fetch('/api/auth/logout', { method: 'POST' });
+    if (import.meta.env.DEV) {
+      // In dev mode, just reset to default user instead of logging out
+      setUser(getDefaultUser());
+    } else {
+      setUser(null);
+      // TODO: Call logout API endpoint if needed
+      // await fetch('/api/auth/logout', { method: 'POST' });
+    }
   };
 
   if (!user) {
