@@ -13,7 +13,6 @@ A modern, full-featured venue slot booking system for university clubs and admin
 ### For Administrators
 - **Admin Dashboard**: Overview of pending requests and system statistics
 - **Request Management**: Review and approve/reject venue booking requests
-- **Master Schedule**: View complete event schedule (coming soon)
 
 ## Tech Stack
 
