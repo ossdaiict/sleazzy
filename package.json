@@ -1,5 +1,5 @@
 {
-  "name": "sbg-slot-booking",
+  "name": "sleazzy",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,10 +9,32 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
+    "@radix-ui/react-accordion": "^1.2.1",
+    "@radix-ui/react-avatar": "^1.1.2",
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@radix-ui/react-dropdown-menu": "^2.1.2",
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-popover": "^1.1.4",
+    "@radix-ui/react-progress": "^1.1.1",
+    "@radix-ui/react-select": "^2.1.2",
+    "@radix-ui/react-separator": "^1.1.1",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-tabs": "^1.1.1",
+    "@radix-ui/react-tooltip": "^1.1.6",
+    "@tailwindcss/vite": "^4.1.18",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.0.3",
     "lucide-react": "^0.563.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-day-picker": "^9.8.0",
+    "react-hook-form": "^7.53.0",
     "react-router-dom": "^7.13.0",
-    "react": "^19.2.3"
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss": "^4.1.18",
+    "zod": "^3.23.8",
+    "@hookform/resolvers": "^3.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

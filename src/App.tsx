@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import ClubDashboard from './components/ClubDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import BookSlot from './components/BookSlot';
-import AdminRequests from './components/AdminRequests';
-import PolicyPage from './components/PolicyPage';
-import MyBookings from './components/MyBookings';
-import Login from './components/Login';
+import Layout from './pages/Layout';
+import ClubDashboard from './lib/ClubDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import BookSlot from './pages/BookSlot';
+import AdminRequests from './pages/AdminRequests';
+import PolicyPage from './pages/PolicyPage';
+import MyBookings from './pages/MyBookings';
+import Login from './pages/Login';
 import { User } from './types';
 import { ClipboardList, Layers } from 'lucide-react';
 
 // Placeholder component for routes not fully implemented
 const PlaceholderPage: React.FC<{ title: string; icon?: React.ReactNode }> = ({ title, icon }) => (
-  <div className="flex flex-col items-center justify-center h-96 text-center p-8 bg-white rounded-xl border border-slate-200 border-dashed">
-    <div className="text-slate-300 mb-4 scale-150">
+  <div className="flex flex-col items-center justify-center h-96 text-center p-8 bg-card rounded-xl border border-border border-dashed">
+    <div className="text-muted-foreground mb-4 scale-150">
       {icon || <ClipboardList size={48} />}
     </div>
-    <h2 className="text-xl font-bold text-slate-700">{title}</h2>
-    <p className="text-slate-500 mt-2">This feature is part of the full application scaffolding.</p>
+    <h2 className="text-xl font-bold text-foreground">{title}</h2>
+    <p className="text-muted-foreground mt-2">This feature is part of the full application scaffolding.</p>
   </div>
 );
 
@@ -31,6 +31,8 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
+    // TODO: Call logout API endpoint if needed
+    // await fetch('/api/auth/logout', { method: 'POST' });
   };
 
   if (!user) {
