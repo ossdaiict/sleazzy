@@ -17,5 +17,6 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
+          port: 22
           script: |
-            /var/www/sleazzy/deploy.sh
+            bash /var/www/sleazzy/deploy.sh
