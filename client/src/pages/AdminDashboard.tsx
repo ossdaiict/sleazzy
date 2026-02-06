@@ -147,29 +147,36 @@ const AdminDashboard: React.FC = () => {
       transition={{ duration: 0.4 }}
       className="space-y-6 sm:space-y-8"
     >
-      {/* Header */}
-      <div className="min-w-0">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight">Admin Dashboard</h2>
-        <p className="text-textMuted mt-2 text-sm sm:text-base font-medium">Overview of venue requests and system status.</p>
+      {/* Enhanced Header */}
+      <div className="px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <h2 className="text-5xl sm:text-6xl font-extrabold text-foreground tracking-tighter">Admin Dashboard</h2>
+          <p className="text-textSecondary mt-3 text-lg font-medium">Monitor venue bookings, manage approvals, and track system performance.</p>
+        </motion.div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Enhanced Key Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0, ease: [0.25, 0.46, 0.45, 0.94] }}
-          whileHover={{ y: -2 }}
+          whileHover={{ y: -4 }}
         >
-          <Card className="rounded-xl hover:border-brand/30 transition-colors rounded-2xl shadow-lg shadow-black/5">
+          <Card className="rounded-2xl hover:border-warning/50 transition-all duration-300 shadow-lg shadow-warning/10 glass-card border-warning/30 bg-gradient-to-br from-warning/5 to-transparent">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-textMuted uppercase tracking-wider">Pending</div>
-                <div className="p-2 bg-brand/10 text-brand rounded-lg border border-brand/20">
-                  <AlertCircle size={18} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Pending</div>
+                <div className="p-3 bg-warning/20 text-warning rounded-xl border border-warning/30 shadow-lg">
+                  <AlertCircle size={20} />
                 </div>
               </div>
-              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">{stats.pending}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-warning tracking-tight">{stats.pending}</div>
+              <p className="text-xs text-textMuted mt-2">Awaiting approval</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -177,17 +184,18 @@ const AdminDashboard: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
-          whileHover={{ y: -2 }}
+          whileHover={{ y: -4 }}
         >
-          <Card className="rounded-xl hover:border-brand/30 transition-colors rounded-2xl shadow-lg shadow-black/5">
+          <Card className="rounded-2xl hover:border-brand/50 transition-all duration-300 shadow-lg shadow-brand/10 glass-card border-brand/30 bg-gradient-to-br from-brand/5 to-transparent">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-textMuted uppercase tracking-wider">Scheduled</div>
-                <div className="p-2 bg-brand/10 text-brand rounded-lg border border-brand/20">
-                  <CalendarIcon size={18} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Scheduled</div>
+                <div className="p-3 bg-brand/20 text-brand rounded-xl border border-brand/30 shadow-lg">
+                  <CalendarIcon size={20} />
                 </div>
               </div>
-              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">{stats.scheduled}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-brand tracking-tight">{stats.scheduled}</div>
+              <p className="text-xs text-textMuted mt-2">Confirmed events</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -195,17 +203,18 @@ const AdminDashboard: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-          whileHover={{ y: -2 }}
+          whileHover={{ y: -4 }}
         >
-          <Card className="rounded-xl hover:border-brand/30 transition-colors rounded-2xl shadow-lg shadow-black/5">
+          <Card className="rounded-2xl hover:border-error/50 transition-all duration-300 shadow-lg shadow-error/10 glass-card border-error/30 bg-gradient-to-br from-error/5 to-transparent">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-textMuted uppercase tracking-wider">Conflicts</div>
-                <div className="p-2 bg-error/10 text-error rounded-lg border border-error/20">
-                  <XCircle size={18} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Conflicts</div>
+                <div className="p-3 bg-error/20 text-error rounded-xl border border-error/30 shadow-lg">
+                  <XCircle size={20} />
                 </div>
               </div>
-              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">{stats.conflicts}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-error tracking-tight">{stats.conflicts}</div>
+              <p className="text-xs text-textMuted mt-2">Time overlaps</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -213,17 +222,18 @@ const AdminDashboard: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-          whileHover={{ y: -2 }}
+          whileHover={{ y: -4 }}
         >
-          <Card className="rounded-xl hover:border-brand/30 transition-colors rounded-2xl shadow-lg shadow-black/5">
+          <Card className="rounded-2xl hover:border-success/50 transition-all duration-300 shadow-lg shadow-success/10 glass-card border-success/30 bg-gradient-to-br from-success/5 to-transparent">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-textMuted uppercase tracking-wider">Active Clubs</div>
-                <div className="p-2 bg-brand/10 text-brand rounded-lg border border-brand/20">
-                  <CheckCircle size={18} />
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Active Clubs</div>
+                <div className="p-3 bg-success/20 text-success rounded-xl border border-success/30 shadow-lg">
+                  <CheckCircle size={20} />
                 </div>
               </div>
-              <div className="mt-4 text-3xl sm:text-4xl font-bold text-foreground tracking-tight">{stats.activeClubs}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-success tracking-tight">{stats.activeClubs}</div>
+              <p className="text-xs text-textMuted mt-2">Organizations</p>
             </CardContent>
           </Card>
         </motion.div>

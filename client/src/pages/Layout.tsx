@@ -2,11 +2,11 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GradientBackground } from '../components/gradient-background';
-import { 
-  LayoutDashboard, 
-  CalendarPlus, 
-  CalendarDays, 
-  FileText, 
+import {
+  LayoutDashboard,
+  CalendarPlus,
+  CalendarDays,
+  FileText,
   ShieldCheck,
   Menu,
   Bell,
@@ -40,17 +40,17 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium active:scale-[0.98] touch-manipulation",
+      "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-sm font-medium active:scale-[0.98] touch-manipulation relative overflow-hidden group",
       isActive
-        ? "bg-brand text-white"
-        : "text-textMuted hover:bg-hoverSoft hover:text-textPrimary"
+        ? "text-white shadow-lg shadow-brand/25 bg-gradient-to-r from-brand to-brandLink"
+        : "text-textMuted hover:text-textPrimary hover:bg-hoverSoft"
     );
 
   const renderNavLinks = () => {
     if (user.role === 'club') {
       return (
         <>
-          <div className="px-4 py-2 text-xs font-semibold text-textMuted uppercase tracking-wider">
+          <div className="px-4 py-2 text-xs font-bold text-textMuted/60 uppercase tracking-widest mb-2 mt-2">
             Club Menu
           </div>
           <NavLink to="/" className={navClass} end>
@@ -74,7 +74,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     } else {
       return (
         <>
-          <div className="px-4 py-2 text-xs font-semibold text-textMuted uppercase tracking-wider">
+          <div className="px-4 py-2 text-xs font-bold text-textMuted/60 uppercase tracking-widest mb-2 mt-2">
             Admin Controls
           </div>
           <NavLink to="/" className={navClass} end>
@@ -95,129 +95,138 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex bg-bgMain dark:bg-transparent relative">
+    <div className="min-h-screen min-h-[100dvh] flex bg-transparent relative selection:bg-brand selection:text-white">
       <GradientBackground />
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 glass border-r border-borderSoft dark:border-white/10 fixed h-full z-10">
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="p-5 lg:p-6 border-b border-borderSoft dark:border-white/10 flex items-center gap-3"
-        >
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center text-white font-bold text-lg"
+      {/* Sidebar - Desktop (Floating Style) */}
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 fixed h-full z-10 p-4">
+        <div className="flex flex-col h-full glass-card border-[0.5px] border-white/20 dark:border-white/10 flex-1 overflow-hidden backdrop-blur-3xl bg-white/50 dark:bg-black/40">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="p-5 lg:p-6 border-b border-borderSoft flex items-center gap-3"
           >
-            S
+            <motion.div
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              className="w-10 h-10 bg-gradient-to-br from-brand to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand/20"
+            >
+              S
+            </motion.div>
+            <span className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-textPrimary to-textSecondary tracking-tight font-sans">Sleazzy</span>
           </motion.div>
-          <span className="text-xl font-semibold text-textPrimary tracking-tight">Sleazzy</span>
-        </motion.div>
-        
-        <motion.nav 
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto overscroll-contain"
-        >
-          {renderNavLinks()}
-        </motion.nav>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="p-4 border-t border-borderSoft dark:border-white/10"
-        >
-          <div className="flex items-center gap-3 p-3 rounded-xl glass-subtle border border-borderSoft dark:border-white/10">
-            <Avatar className="h-10 w-10 border border-borderSoft dark:border-white/20 shrink-0">
-              <AvatarFallback className="bg-brand/10 text-brand font-semibold text-sm">
-                {user.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-textPrimary truncate">
-                {user.name}
-              </p>
-              <p className="text-xs text-textMuted truncate">
-                {user.role === 'club' ? `Group ${user.group}` : 'Administrator'}
-              </p>
+          <motion.nav
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto overscroll-contain scrollbar-hide"
+          >
+            {renderNavLinks()}
+          </motion.nav>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="p-4 border-t border-borderSoft/50"
+          >
+            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-hoverSoft/50 transition-colors cursor-pointer group">
+              <Avatar className="h-10 w-10 border-2 border-white dark:border-white/10 shrink-0 shadow-sm ring-2 ring-transparent group-hover:ring-brand/20 transition-all">
+                <AvatarFallback className="bg-gradient-to-br from-brand to-purple-600 text-white font-semibold text-sm">
+                  {user.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-textPrimary truncate group-hover:text-brand transition-colors">
+                  {user.name}
+                </p>
+                <p className="text-xs text-textMuted truncate">
+                  {user.role === 'club' ? `Group ${user.group}` : 'Administrator'}
+                </p>
+              </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </aside>
 
       {/* Main Content */}
       <div className="flex-1 md:ml-64 lg:ml-72 flex flex-col min-h-screen min-h-[100dvh]">
         {/* Header */}
-        <motion.header 
+        <motion.header
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="glass border-b border-borderSoft dark:border-white/10 sticky top-0 z-20 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between safe-area-inset-top"
+          className="sticky top-0 z-20 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between safe-area-inset-top"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <Button 
+            <Button
               variant="ghost"
               size="icon"
-              className="md:hidden shrink-0 h-10 w-10 rounded-lg active:scale-95"
+              className="md:hidden shrink-0 h-10 w-10 rounded-xl active:scale-95 glass bg-white/50"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               <Menu size={22} />
             </Button>
-            <h1 className="text-lg sm:text-xl font-semibold text-textPrimary truncate tracking-tight">
+            <div className="hidden md:block">
+              {/* Breadcrumb or simplified title could go here, or just keep it clean */}
+            </div>
+            <h1 className="text-lg sm:text-xl font-bold text-textPrimary truncate tracking-tight md:hidden">
               {user.role === 'club' ? 'Club Portal' : 'Administration'}
             </h1>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <ThemeToggle />
-            <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-lg text-textSecondary">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-error rounded-full border-2 border-card" />
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="glass rounded-full px-1 py-1 shadow-sm">
+              <ThemeToggle />
+            </div>
+
+            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full glass hover:bg-white/60 dark:hover:bg-black/40 transition-all">
+              <Bell size={20} className="text-textSecondary" />
+              <span className="absolute top-2 right-2 h-2.5 w-2.5 bg-error rounded-full border-2 border-white dark:border-black animate-pulse" />
             </Button>
-            <Button 
+
+            <Button
               variant="ghost"
               size="sm"
               onClick={onLogout}
-              className="flex items-center gap-2 text-textMuted hover:text-error rounded-lg"
+              className="hidden sm:flex items-center gap-2 text-textMuted hover:text-error hover:bg-error/10 rounded-full h-10 px-4 font-medium transition-all"
             >
               <LogOut size={18} />
-              <span className="hidden sm:inline text-sm">Logout</span>
+              <span>Logout</span>
             </Button>
           </div>
         </motion.header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overscroll-contain pb-safe bg-transparent dark:bg-transparent">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overscroll-contain pb-safe">
           <div className="max-w-7xl mx-auto w-full">
             {children}
           </div>
         </main>
       </div>
-      
+
       {/* Mobile Sidebar */}
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <SheetContent 
-          side="left" 
-          className="w-[min(85vw,320px)] sm:w-72 p-0 flex flex-col glass-dark border-r border-borderSoft dark:border-white/10 rounded-r-xl"
+        <SheetContent
+          side="left"
+          className="w-[min(85vw,320px)] sm:w-72 p-0 flex flex-col glass-dark border-r border-white/10"
         >
-          <SheetHeader className="p-5 sm:p-6 border-b border-borderSoft">
+          <SheetHeader className="p-5 sm:p-6 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center text-white font-bold text-lg">
+              <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand/20">
                 S
               </div>
-              <SheetTitle className="text-xl font-semibold text-textPrimary">Sleazzy</SheetTitle>
+              <SheetTitle className="text-xl font-bold text-textPrimary">Sleazzy</SheetTitle>
             </div>
           </SheetHeader>
-          
+
           <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto overscroll-contain">
             {renderNavLinks()}
           </nav>
-          
-          <div className="p-4 border-t border-borderSoft">
-            <div className="flex items-center gap-3 p-3 rounded-xl glass-subtle border border-borderSoft dark:border-white/10">
-              <Avatar className="h-10 w-10 border border-borderSoft shrink-0">
+
+          <div className="p-4 border-t border-white/10">
+            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
+              <Avatar className="h-10 w-10 border border-white/10 shrink-0">
                 <AvatarFallback className="bg-brand/10 text-brand font-semibold text-sm">
                   {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -231,6 +240,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                 </p>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              className="w-full mt-2 justify-start text-error hover:text-error hover:bg-error/10"
+              onClick={onLogout}
+            >
+              <LogOut size={18} className="mr-2" /> Logout
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

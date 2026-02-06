@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar as CalendarIcon,
-  Clock,
   Users,
   MapPin,
   AlertTriangle,
@@ -11,7 +10,8 @@ import {
   Building2,
   Lock,
   ChevronDown,
-  Check
+  Check,
+  Info
 } from 'lucide-react';
 import { CLUBS, VENUES } from '../constants';
 import { apiRequest, type ApiClub, type ApiVenue } from '../lib/api';
@@ -22,51 +22,18 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { CardContent } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Calendar } from '../components/ui/calendar';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '../components/ui/form';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { TimePicker } from '../components/ui/time-picker';
 import { cn } from '@/lib/utils';
 
 interface BookSlotProps {
   currentUser: User;
 }
-
-// Generate time options for Select dropdowns
-const generateTimeOptions = () => {
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = ['00', '15', '30', '45'];
-  const options: string[] = [];
-
-  hours.forEach(hour => {
-    minutes.forEach(minute => {
-      const timeString = `${hour.toString().padStart(2, '0')}:${minute}`;
-      const displayTime = new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      options.push(timeString);
-    });
-  });
-
-  return options;
-};
-
-const TIME_OPTIONS = generateTimeOptions();
 
 const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const [clubs, setClubs] = useState<ApiClub[]>([]);
@@ -123,7 +90,6 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   // Handle date selection from Calendar
   useEffect(() => {
     if (selectedDate) {
-      // Format as YYYY-MM-DD using local time to prevent timezone shifts
       const year = selectedDate.getFullYear();
       const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
       const day = String(selectedDate.getDate()).padStart(2, '0');
@@ -145,12 +111,10 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     if (name === currentUser.name && currentUser.group) {
       return currentUser.group;
     }
-
     const apiClub = clubs.find(c => c.name === name);
     if (apiClub?.group_category) {
       return apiClub.group_category as ClubGroupType;
     }
-
     return CLUBS.find(c => c.name === name)?.group;
   };
 
@@ -253,10 +217,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
       return;
     }
 
-    // Check conflicts
     const checkConflicts = async () => {
       try {
-        // Combine date and time for backend
         if (!formData.date || !formData.startTime || !formData.endTime) return;
 
         const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
@@ -341,6 +303,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
       });
 
       toastSuccess('Booking request submitted successfully!');
+      // Optional: Redirect or clear form
     } catch (error) {
       console.error('Failed to submit booking:', error);
       toastError(error, 'Failed to submit booking. Please try again.');
@@ -355,170 +318,226 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="max-w-3xl mx-auto space-y-6 w-full"
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="max-w-5xl mx-auto space-y-8 w-full pb-10 px-4"
     >
+      {/* Enhanced Header */}
+      <div className="text-center space-y-4 mb-10">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-brand/10 border border-brand/30 mb-3"
+        >
+          <CalendarIcon className="w-4 h-4 text-brand mr-2" />
+          <span className="text-sm font-semibold text-brand">Venue Booking System</span>
+        </motion.div>
+
+        <motion.h1
+          className="text-5xl md:text-6xl font-extrabold tracking-tighter bg-gradient-to-r from-brand via-purple-500 to-pink-500 bg-clip-text text-transparent"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          Book Your Venue
+        </motion.h1>
+        <motion.p
+          className="text-textSecondary text-lg max-w-2xl mx-auto leading-relaxed"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          Schedule your next event seamlessly. Browse availability, select your perfect venue, and secure your booking in minutes.
+        </motion.p>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
+        className="glass-card rounded-3xl overflow-hidden shadow-2xl shadow-brand/20 border-white/30 dark:border-white/10 backdrop-blur-xl"
       >
-        <Card className="rounded-xl overflow-hidden">
-          <CardHeader className="border-b border-borderSoft pb-6">
-            <CardTitle className="text-2xl flex items-center gap-3 font-bold tracking-tight">
-              <CalendarIcon className="text-primary" size={24} />
-              Book a Venue Slot
-            </CardTitle>
-            <CardDescription className="mt-2 text-base">Fill in the details to request a venue for your club event.</CardDescription>
-          </CardHeader>
+        {/* Enhanced Progress Decoration */}
+        <div className="h-2 w-full bg-gradient-to-r from-borderSoft via-brand/20 to-transparent relative overflow-hidden">
+          <motion.div
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-brand to-brandLink"
+            initial={{ width: "0%" }}
+            animate={{ width: isSubmitting ? "100%" : "35%" }}
+            transition={{ duration: 1.5, ease: "circOut" }}
+          />
+        </div>
 
-          <CardContent className="p-6 sm:p-8">
-            {metaError && (
-              <Alert variant="destructive" className="mb-6">
+        <CardContent className="p-0">
+          {metaError && (
+            <div className="p-6">
+              <Alert variant="destructive">
                 <AlertTriangle size={16} />
                 <AlertTitle>Unable to load form data</AlertTitle>
                 <AlertDescription className="mt-1">{metaError}</AlertDescription>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => window.location.reload()}
-                >
-                  Refresh page
-                </Button>
               </Alert>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-6">
+            </div>
+          )}
 
-              {/* Section 1: Event Info */}
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-0">
+
+            {/* Sidebar / Left Panel - Enhanced Context Info */}
+            <div className="lg:col-span-4 bg-gradient-to-b from-hoverSoft/50 to-hoverSoft/20 p-8 space-y-8 lg:border-r border-borderSoft/50 lg:border-b-0 border-b">
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-textMuted uppercase tracking-wider">Event Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="eventName">Event Name</Label>
-                    <Input
-                      id="eventName"
-                      type="text"
-                      name="eventName"
-                      required
-                      placeholder="e.g. Intro to Machine Learning"
-                      value={formData.eventName}
-                      onChange={(e) => handleChange('eventName', e.target.value)}
-                    />
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-8 w-1.5 bg-gradient-to-b from-brand to-brandLink rounded-full" />
+                  <h3 className="text-lg font-bold text-textPrimary">Key Guidelines</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="p-4 bg-white/60 dark:bg-white/5 rounded-xl border border-borderSoft/60 shadow-sm hover:shadow-md hover:border-brand/30 transition-all backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="h-2 w-2 rounded-full bg-brand mt-2 shrink-0" />
+                      <div>
+                        <span className="font-semibold block text-textPrimary text-sm mb-1">Advance Notice</span>
+                        <p className="text-xs text-textSecondary leading-relaxed">Closed club: 1 day. Open: 20 days. Co-curricular: 30 days.</p>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="eventType">Event Type</Label>
-                    <Select value={formData.eventType} onValueChange={(v) => handleChange('eventType', v)}>
-                      <SelectTrigger id="eventType" className="w-full">
-                        <SelectValue placeholder="Select event type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="closed_club">Closed Club Event</SelectItem>
-                        <SelectItem value="open_all">Open-for-All</SelectItem>
-                        <SelectItem value="co_curricular">Co-curricular</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="p-4 bg-white/60 dark:bg-white/5 rounded-xl border border-borderSoft/60 shadow-sm hover:shadow-md hover:border-success/30 transition-all backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="h-2 w-2 rounded-full bg-success mt-2 shrink-0" />
+                      <div>
+                        <span className="font-semibold block text-textPrimary text-sm mb-1">Weekend Hours</span>
+                        <p className="text-xs text-textSecondary leading-relaxed">8:00 AM – 12:00 AM</p>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>Expected Attendees</Label>
-                    <div className="relative">
-                      <Users size={18} className="absolute left-3 top-2.5 text-textMuted z-10 pointer-events-none" />
-                      <Select
-                        value={formData.expectedAttendees}
-                        onValueChange={(v) => handleChange('expectedAttendees', v)}
-                      >
-                        <SelectTrigger className="w-full pl-10">
-                          <SelectValue placeholder="Select expected attendees" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          <SelectItem value="0">0 - No attendees</SelectItem>
-                          <SelectItem value="10">1-10 attendees</SelectItem>
-                          <SelectItem value="25">11-25 attendees</SelectItem>
-                          <SelectItem value="50">26-50 attendees</SelectItem>
-                          <SelectItem value="75">51-75 attendees</SelectItem>
-                          <SelectItem value="100">76-100 attendees</SelectItem>
-                          <SelectItem value="150">101-150 attendees</SelectItem>
-                          <SelectItem value="200">151-200 attendees</SelectItem>
-                          <SelectItem value="250">201-250 attendees</SelectItem>
-                          <SelectItem value="300">251-300 attendees</SelectItem>
-                          <SelectItem value="400">301-400 attendees</SelectItem>
-                          <SelectItem value="500">401-500 attendees</SelectItem>
-                          <SelectItem value="500+">500+ attendees</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="p-4 bg-white/60 dark:bg-white/5 rounded-xl border border-borderSoft/60 shadow-sm hover:shadow-md hover:border-warning/30 transition-all backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="h-2 w-2 rounded-full bg-warning mt-2 shrink-0" />
+                      <div>
+                        <span className="font-semibold block text-textPrimary text-sm mb-1">Weekday Hours</span>
+                        <p className="text-xs text-textSecondary leading-relaxed">4:00 PM – 12:00 AM</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <Separator />
+              {currentUser.role === 'club' && (
+                <div className="pt-6 border-t border-borderSoft/30">
+                  <h3 className="text-xs font-bold text-textMuted uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-brand" />
+                    Logged in as
+                  </h3>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-brand/5 border border-brand/20">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand to-brandLink flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-textPrimary">{currentUser.name}</p>
+                      <p className="text-xs text-textMuted capitalize">Role: {currentUser.role}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
-              {/* Section 2: Organizer & Timing */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-textMuted uppercase tracking-wider">Logistics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="clubName">Organizing Club</Label>
-                    {currentUser.role === 'club' ? (
-                      <div className="relative">
-                        <Lock size={18} className="absolute left-3 top-2.5 text-textMuted" />
-                        <Input
-                          id="clubName"
-                          type="text"
-                          readOnly
-                          value={formData.clubName}
-                          className="pl-10 bg-hoverSoft border-borderSoft cursor-not-allowed"
-                        />
-                        <p className="text-xs text-textMuted mt-1 ml-1">Auto-filled based on your login session.</p>
-                      </div>
-                    ) : (
-                      <Select value={formData.clubName} onValueChange={(v) => handleChange('clubName', v)}>
-                        <SelectTrigger id="clubName" className="w-full">
-                          <SelectValue placeholder="Select a Club..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clubs.map(club => (
-                            <SelectItem key={club.id} value={club.name}>
-                              {club.name} (Group {club.group_category})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+            {/* Main Form Area - Enhanced */}
+            <div className="lg:col-span-8 p-8 space-y-8">
+
+              {/* Event Info */}
+              <section className="space-y-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-1.5 bg-gradient-to-b from-brand to-brandLink rounded-full" />
+                  <h2 className="text-2xl font-bold text-textPrimary">Event Details</h2>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="eventName" className="text-textSecondary font-semibold text-sm">Event Name *</Label>
+                    <Input
+                      id="eventName"
+                      value={formData.eventName}
+                      onChange={(e) => handleChange('eventName', e.target.value)}
+                      placeholder="e.g. Hackathon Kickoff, Tech Summit..."
+                      className="h-12 bg-white/70 dark:bg-white/5 border-borderSoft focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all text-base rounded-xl font-medium shadow-sm"
+                    />
                   </div>
 
-                  <div className="md:col-span-2 space-y-2">
-                    <Label>Date</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2.5">
+                      <Label htmlFor="eventType" className="text-textSecondary font-semibold text-sm">Event Type *</Label>
+                      <Select value={formData.eventType} onValueChange={(v) => handleChange('eventType', v)}>
+                        <SelectTrigger id="eventType" className="h-12 border-borderSoft hover:bg-hoverSoft/50 focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all rounded-xl">
+                          <SelectValue placeholder="Select Type" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="closed_club" className="cursor-pointer">
+                            <span className="font-semibold">Closed Club Event</span>
+                          </SelectItem>
+                          <SelectItem value="open_all" className="cursor-pointer">
+                            <span className="font-semibold">Open-for-All</span>
+                          </SelectItem>
+                          <SelectItem value="co_curricular" className="cursor-pointer">
+                            <span className="font-semibold">Co-curricular</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <Label htmlFor="expectedAttendees" className="text-textSecondary font-semibold text-sm">Expected Attendees *</Label>
+                      <Select value={formData.expectedAttendees} onValueChange={(v) => handleChange('expectedAttendees', v)}>
+                        <SelectTrigger className="h-12 border-borderSoft hover:bg-hoverSoft/50 focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <Users size={16} className="text-brand" />
+                            <SelectValue placeholder="Count" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="50">1-50 People</SelectItem>
+                          <SelectItem value="100">51-100 People</SelectItem>
+                          <SelectItem value="200">101-200 People</SelectItem>
+                          <SelectItem value="500">201-500 People</SelectItem>
+                          <SelectItem value="500+">500+ People</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <Separator className="bg-borderSoft/40" />
+
+              {/* Timing */}
+              <section className="space-y-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-1.5 bg-gradient-to-b from-brand to-brandLink rounded-full" />
+                  <h2 className="text-2xl font-bold text-textPrimary">Date & Time</h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="sm:col-span-2 space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">Select Date *</Label>
                     <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                       <PopoverTrigger asChild>
-                        <div className="relative">
-                          <CalendarIcon size={18} className="absolute left-3 top-2.5 text-textMuted z-10 pointer-events-none" />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal pl-10 border-borderSoft/80 dark:border-white/10 bg-white/90 dark:bg-white/5 backdrop-blur-sm",
-                              !formData.date && "text-textMuted",
-                              warnings.timeline && "border-error"
-                            )}
-                            onClick={() => setDatePickerOpen(true)}
-                          >
-                            {formData.date ? (
-                              new Date(formData.date).toLocaleDateString('en-US', {
-                                weekday: 'short',
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full h-12 justify-start text-left font-semibold border-borderSoft hover:bg-hoverSoft/50 transition-all bg-white/70 dark:bg-white/5 text-textPrimary rounded-xl shadow-sm",
+                            !formData.date && "text-textMuted",
+                            warnings.timeline && "border-error/50 ring-2 ring-error/20 bg-error/5"
+                          )}
+                          onClick={() => setDatePickerOpen(true)}
+                        >
+                          <CalendarIcon className="mr-2 h-5 w-5 text-brand opacity-70" />
+                          {formData.date ? (
+                            <span className="font-semibold">
+                              {new Date(formData.date).toLocaleDateString('en-US', {
+                                weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'
+                              })}
+                            </span>
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                        </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-3" align="start">
                         <Calendar
                           mode="single"
                           selected={selectedDate}
@@ -533,222 +552,254 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       </PopoverContent>
                     </Popover>
                     {warnings.timeline && (
-                      <Alert variant="destructive" className="mt-2">
-                        <AlertTriangle size={14} />
-                        <AlertDescription className="text-xs">{warnings.timeline}</AlertDescription>
-                      </Alert>
+                      <p className="text-xs text-error font-semibold flex items-center gap-1.5 mt-2 bg-error/5 p-2.5 rounded-lg border border-error/20">
+                        <AlertTriangle size={14} className="shrink-0" /> {warnings.timeline}
+                      </p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Start Time</Label>
-                    <div className="relative">
-                      <Clock size={18} className="absolute left-3 top-2.5 text-textMuted z-10 pointer-events-none" />
-                      <Select
-                        value={formData.startTime}
-                        onValueChange={(v) => handleChange('startTime', v)}
-                      >
-                        <SelectTrigger className={cn(
-                          "w-full pl-10",
-                          warnings.hours && "border-error"
-                        )}>
-                          <SelectValue placeholder="Select start time" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {TIME_OPTIONS.map((time) => {
-                            const displayTime = new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true
-                            });
-                            return (
-                              <SelectItem key={time} value={time}>
-                                {displayTime}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">Start Time *</Label>
+                    <TimePicker
+                      value={formData.startTime}
+                      onChange={(v) => handleChange('startTime', v)}
+                      className={cn("h-12 rounded-xl", warnings.hours && "border-error/50 ring-2 ring-error/20")}
+                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>End Time</Label>
-                    <div className="relative">
-                      <Clock size={18} className="absolute left-3 top-2.5 text-textMuted z-10 pointer-events-none" />
-                      <Select
-                        value={formData.endTime}
-                        onValueChange={(v) => handleChange('endTime', v)}
-                      >
-                        <SelectTrigger className={cn(
-                          "w-full pl-10",
-                          warnings.hours && "border-error"
-                        )}>
-                          <SelectValue placeholder="Select end time" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {TIME_OPTIONS.map((time) => {
-                            const displayTime = new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true
-                            });
-                            return (
-                              <SelectItem key={time} value={time}>
-                                {displayTime}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">End Time *</Label>
+                    <TimePicker
+                      value={formData.endTime}
+                      onChange={(v) => handleChange('endTime', v)}
+                      className={cn("h-12 rounded-xl", warnings.hours && "border-error/50 ring-2 ring-error/20")}
+                    />
                   </div>
 
-                  {warnings.hours && (
-                    <div className="md:col-span-2">
-                      <Alert variant="destructive">
-                        <AlertTriangle size={14} />
-                        <AlertDescription className="text-xs">{warnings.hours}</AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
-
-                  {warnings.conflict && (
-                    <div className="md:col-span-2">
-                      <Alert variant="destructive">
-                        <AlertOctagon size={18} />
-                        <AlertTitle>Booking Conflict</AlertTitle>
-                        <AlertDescription className="mt-1 text-xs">{warnings.conflict}</AlertDescription>
-                      </Alert>
+                  {(warnings.hours || warnings.conflict) && (
+                    <div className="sm:col-span-2 space-y-3">
+                      {warnings.hours && (
+                        <Alert className="bg-error/5 border-2 border-error/30 text-error rounded-xl">
+                          <AlertTriangle size={16} className="shrink-0" />
+                          <AlertDescription className="font-semibold ml-2">{warnings.hours}</AlertDescription>
+                        </Alert>
+                      )}
+                      {warnings.conflict && (
+                        <Alert className="bg-error/5 border-2 border-error/30 text-error rounded-xl">
+                          <AlertOctagon size={16} className="shrink-0" />
+                          <AlertTitle className="font-bold">Conflict Detected</AlertTitle>
+                          <AlertDescription className="font-semibold mt-1">{warnings.conflict}</AlertDescription>
+                        </Alert>
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
 
-              <Separator />
+              <Separator className="bg-borderSoft/40" />
 
-              {/* Section 3: Venue */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-textMuted uppercase tracking-wider">Venue Selection</h3>
-                <div className="space-y-2">
-                  <Label>Preferred Venues</Label>
+              {/* Venues */}
+              <section className="space-y-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-1.5 bg-gradient-to-b from-brand to-brandLink rounded-full" />
+                  <h2 className="text-2xl font-bold text-textPrimary">Select Venue</h2>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-textSecondary font-semibold text-sm">Venues *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
                         className={cn(
-                          "w-full justify-between pl-3 pr-3 text-left font-normal border-borderSoft/80 dark:border-white/10 bg-white/90 dark:bg-white/5 backdrop-blur-sm",
+                          "w-full h-12 justify-between border-borderSoft hover:bg-hoverSoft/50 transition-all bg-white/70 dark:bg-white/5 text-textPrimary rounded-xl shadow-sm font-semibold",
                           formData.venueIds.length === 0 && "text-textMuted"
                         )}
                       >
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <MapPin size={18} className="text-textMuted shrink-0" />
+                          <MapPin size={18} className="text-brand shrink-0" />
                           <span className="truncate">
                             {formData.venueIds.length > 0
-                              ? `${formData.venueIds.length} venue(s) selected`
-                              : "Select venues..."}
+                              ? `${formData.venueIds.length} venue${formData.venueIds.length !== 1 ? 's' : ''} selected`
+                              : "Choose venues..."}
                           </span>
                         </div>
-                        <div className="opacity-50 shrink-0">
-                          <ChevronDown className="h-4 w-4" /> {/* Need to import ChevronDown */}
-                        </div>
+                        <ChevronDown className="h-5 w-5 opacity-50 shrink-0" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0" align="start">
-                      <div className="p-2 max-h-[300px] overflow-y-auto space-y-2">
-                        <div className="px-2 py-1.5 text-xs font-semibold text-textMuted">Category A (General)</div>
-                        {venues.filter(v => normalizeVenueCategory(v.category) === 'A').map(v => (
-                          <div
-                            key={v.id}
-                            className="flex items-center space-x-2 px-2 py-1.5 hover:bg-hoverSoft rounded-sm cursor-pointer"
-                            onClick={() => handleVenueToggle(v.id)}
-                          >
-                            <div className={cn(
-                              "h-4 w-4 border border-primary rounded-sm flex items-center justify-center",
-                              formData.venueIds.includes(v.id) ? "bg-primary text-white" : "bg-transparent"
-                            )}>
-                              {formData.venueIds.includes(v.id) && <Check className="h-3 w-3" />}
-                            </div>
-                            <span className="text-sm">{v.name}</span>
+                    <PopoverContent className="w-[360px] p-0 rounded-xl shadow-2xl" align="start">
+                      <div className="max-h-[400px] overflow-y-auto space-y-1 p-3">
+                        {/* Category A Venues */}
+                        <div className="sticky top-0 bg-popover z-10 px-3 py-2 mb-2">
+                          <div className="px-2 py-1.5 text-xs font-bold text-brand uppercase tracking-wider bg-brand/10 rounded-lg border border-brand/20 flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-brand" />
+                            Standard Venues (Category A)
                           </div>
-                        ))}
+                        </div>
 
-                        <div className="px-2 py-1.5 text-xs font-semibold text-textMuted mt-2">Category B (Restricted)</div>
-                        {venues.filter(v => normalizeVenueCategory(v.category) === 'B').map(v => (
-                          <div
-                            key={v.id}
-                            className="flex items-center space-x-2 px-2 py-1.5 hover:bg-hoverSoft rounded-sm cursor-pointer"
-                            onClick={() => handleVenueToggle(v.id)}
-                          >
-                            <div className={cn(
-                              "h-4 w-4 border border-primary rounded-sm flex items-center justify-center",
-                              formData.venueIds.includes(v.id) ? "bg-primary text-white" : "bg-transparent"
-                            )}>
-                              {formData.venueIds.includes(v.id) && <Check className="h-3 w-3" />}
+                        {venues.filter(v => normalizeVenueCategory(v.category) === 'A').length === 0 ? (
+                          <div className="px-2 py-3 text-center text-xs text-textMuted">No Category A venues</div>
+                        ) : (
+                          venues.filter(v => normalizeVenueCategory(v.category) === 'A').map(v => (
+                            <div
+                              key={v.id}
+                              className="flex items-center space-x-3 px-3 py-2.5 hover:bg-hoverSoft/50 rounded-lg cursor-pointer transition-all group"
+                              onClick={() => handleVenueToggle(v.id)}
+                            >
+                              <div className={cn(
+                                "h-5 w-5 border-2 rounded-md flex items-center justify-center transition-all shrink-0",
+                                formData.venueIds.includes(v.id)
+                                  ? "bg-brand border-brand text-white shadow-md shadow-brand/30"
+                                  : "border-textMuted/40 bg-transparent group-hover:border-brand/50"
+                              )}>
+                                {formData.venueIds.includes(v.id) && <Check className="h-3.5 w-3.5" />}
+                              </div>
+                              <span className="text-sm font-medium text-textPrimary flex-1">{v.name}</span>
+                              <Badge variant="outline" className="text-xs bg-brand/5 border-brand/30 text-brand">Cat A</Badge>
                             </div>
-                            <span className="text-sm">{v.name}</span>
+                          ))
+                        )}
+
+                        {/* Category B Venues */}
+                        <div className="sticky top-0 bg-popover z-10 px-3 py-2 mt-4 mb-2">
+                          <div className="px-2 py-1.5 text-xs font-bold text-warning uppercase tracking-wider bg-warning/10 rounded-lg border border-warning/20 flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-warning" />
+                            Restricted Venues (Category B)
                           </div>
-                        ))}
+                        </div>
+
+                        {venues.filter(v => normalizeVenueCategory(v.category) === 'B').length === 0 ? (
+                          <div className="px-2 py-3 text-center text-xs text-textMuted">No Category B venues</div>
+                        ) : (
+                          venues.filter(v => normalizeVenueCategory(v.category) === 'B').map(v => (
+                            <div
+                              key={v.id}
+                              className="flex items-center space-x-3 px-3 py-2.5 hover:bg-hoverSoft/50 rounded-lg cursor-pointer transition-all group"
+                              onClick={() => handleVenueToggle(v.id)}
+                            >
+                              <div className={cn(
+                                "h-5 w-5 border-2 rounded-md flex items-center justify-center transition-all shrink-0",
+                                formData.venueIds.includes(v.id)
+                                  ? "bg-warning border-warning text-white shadow-md shadow-warning/30"
+                                  : "border-textMuted/40 bg-transparent group-hover:border-warning/50"
+                              )}>
+                                {formData.venueIds.includes(v.id) && <Check className="h-3.5 w-3.5" />}
+                              </div>
+                              <span className="text-sm font-medium text-textPrimary flex-1">{v.name}</span>
+                              <Lock size={14} className="text-warning opacity-70 shrink-0" />
+                            </div>
+                          ))
+                        )}
                       </div>
                     </PopoverContent>
                   </Popover>
 
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.venueIds.map(id => {
-                      const v = venues.find(v => v.id === id);
-                      if (!v) return null;
-                      return (
-                        <Badge key={id} variant="secondary" className="flex items-center gap-1">
-                          {v.name}
-                          <button type="button" onClick={() => handleVenueToggle(id)} className="ml-1 hover:text-error">
-                            &times;
-                          </button>
-                        </Badge>
-                      );
-                    })}
+                  {/* Selected Venues Badges */}
+                  <div className="flex flex-wrap gap-2 min-h-[36px]">
+                    <AnimatePresence>
+                      {formData.venueIds.map(id => {
+                        const v = venues.find(v => v.id === id);
+                        if (!v) return null;
+                        const isCatB = normalizeVenueCategory(v.category) === 'B';
+                        return (
+                          <motion.div
+                            key={id}
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                          >
+                            <Badge 
+                              className={cn(
+                                "pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 font-semibold shadow-md",
+                                isCatB
+                                  ? "bg-warning/15 text-warning border-warning/30 hover:bg-warning/25"
+                                  : "bg-brand/15 text-brand border-brand/30 hover:bg-brand/25"
+                              )}
+                            >
+                              {v.name}
+                              <button 
+                                type="button" 
+                                onClick={() => handleVenueToggle(id)} 
+                                className={cn(
+                                  "ml-0.5 hover:bg-current/20 rounded-full p-0.5 transition-all hover:scale-110"
+                                )}
+                              >
+                                <span className="font-bold text-lg">×</span>
+                              </button>
+                            </Badge>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
                   </div>
 
+                  {/* Venue Info Alert */}
                   {warnings.venue && (
                     <Alert
-                      variant={warnings.venueType === 'warning' ? 'warning' : 'success'}
-                      className="mt-3"
+                      className={cn(
+                        "rounded-xl border-2 mt-3",
+                        warnings.venueType === 'warning' 
+                          ? "border-warning/30 bg-warning/5" 
+                          : "border-success/30 bg-success/5"
+                      )}
                     >
-                      {warnings.venueType === 'warning' ? <Building2 size={16} /> : <CheckCircle2 size={16} />}
-                      <AlertDescription className="font-medium">{warnings.venue}</AlertDescription>
+                      {warnings.venueType === 'warning' ? (
+                        <AlertTriangle size={18} className="text-warning shrink-0" />
+                      ) : (
+                        <CheckCircle2 size={18} className="text-success shrink-0" />
+                      )}
+                      <AlertDescription className={cn(
+                        "font-semibold ml-3",
+                        warnings.venueType === 'warning' ? "text-warning" : "text-success"
+                      )}>
+                        {warnings.venue}
+                      </AlertDescription>
                     </Alert>
                   )}
                 </div>
+              </section>
+
+              {/* Submit Area */}
+              <div className="pt-8 border-t border-borderSoft/40">
+                <Button
+                  type="submit"
+                  disabled={hasErrors || isSubmitting || !formData.eventName || !formData.date || !formData.startTime || !formData.endTime || formData.venueIds.length === 0}
+                  className={cn(
+                    "w-full h-14 text-base font-bold rounded-xl shadow-lg transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2",
+                    hasErrors || isSubmitting || !formData.eventName || !formData.date || !formData.startTime || !formData.endTime || formData.venueIds.length === 0
+                      ? "bg-textMuted/50 opacity-60 cursor-not-allowed"
+                      : "bg-gradient-to-r from-brand via-brandLink to-purple-500 hover:shadow-2xl hover:shadow-brand/30 text-white active:scale-95"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-5 w-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Submitting Booking...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={20} />
+                      <span>Confirm Booking</span>
+                    </>
+                  )}
+                </Button>
+                {hasErrors && (
+                  <p className="text-center text-error text-sm mt-4 font-semibold bg-error/5 p-3 rounded-lg border border-error/20">
+                    ⚠️ Please resolve the warnings above to proceed.
+                  </p>
+                )}
+                {!formData.eventName || !formData.date || !formData.startTime || !formData.endTime || formData.venueIds.length === 0 ? (
+                  <p className="text-center text-textMuted text-sm mt-4 font-medium">
+                    📝 Please fill in all required fields to submit.
+                  </p>
+                ) : null}
               </div>
 
-              {/* Actions */}
-              <div className="pt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
-                <motion.div whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => window.history.back()}
-                    className="w-full rounded-xl h-11"
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                </motion.div>
-                <motion.div whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-                  <Button
-                    type="submit"
-                    disabled={hasErrors || isSubmitting}
-                    className="w-full rounded-xl h-11 shadow-lg shadow-primary/20"
-                  >
-                    {isSubmitting ? 'Submitting...' : 'Submit Request'}
-                    {!isSubmitting && <CheckCircle2 size={18} />}
-                  </Button>
-                </motion.div>
-              </div>
-
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+          </form>
+        </CardContent>
       </motion.div>
     </motion.div>
   );

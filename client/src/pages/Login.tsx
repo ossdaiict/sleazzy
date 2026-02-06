@@ -252,16 +252,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </form>
             </Form>
 
-            <div className="relative my-6">
+            {/* <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-borderSoft" />
               </div>
               <div className="relative flex justify-center text-xs uppercase tracking-wider">
                 <span className="bg-card px-2 text-textMuted text-xs">Or continue with</span>
               </div>
-            </div>
+            </div> */}
 
-            <motion.div whileTap={{ scale: 0.98 }} className="w-full">
+            {/* <motion.div whileTap={{ scale: 0.98 }} className="w-full">
               <Button
                 type="button"
                 variant="outline"
@@ -301,7 +301,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </svg>
               Google
             </Button>
-            </motion.div>
+            </motion.div> */}
 
             <div className="mt-6 text-center">
               <p className="text-sm text-textMuted">
