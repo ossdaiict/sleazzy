@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
-
+import { sendApprovalNotification } from '../services/email';
 import { randomUUID } from 'crypto';
 
 type EventType = 'co_curricular' | 'open_all' | 'closed_club';
@@ -109,7 +109,7 @@ export const createBooking = async (req: Request, res: Response) => {
 
   const { data: club, error: clubError } = await supabase
     .from('clubs')
-    .select('id, group_category')
+    .select('id, group_category, name')
     .eq('id', clubId)
     .single();
 
@@ -176,6 +176,26 @@ export const createBooking = async (req: Request, res: Response) => {
       return res.status(500).json({ error: `Failed to book venue ${venue.name}. Partial success may have occurred.` });
     }
     createdBookings.push(booking);
+  }
+
+  // Send approval notification email when any booking is pending (venue needs approval)
+  const pendingForEmail = createdBookings.filter((b) => b.status === 'pending');
+  if (pendingForEmail.length > 0) {
+    const formatTime = (iso: string) => new Date(iso).toLocaleString();
+    const items = pendingForEmail.map((b) => {
+      const venue = venues.find((v) => v.id === b.venue_id);
+      return {
+        venueName: venue?.name ?? b.venue_id,
+        eventName: b.event_name,
+        startTime: formatTime(b.start_time),
+        endTime: formatTime(b.end_time),
+        clubName: club?.name,
+      };
+    });
+    const { sent, error } = await sendApprovalNotification(items);
+    if (!sent && error) {
+      console.error('Approval email failed (bookings still created):', error);
+    }
   }
 
   return res.status(201).json(createdBookings);

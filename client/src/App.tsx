@@ -16,16 +16,6 @@ import { supabase } from './lib/supabase';
 import { apiRequest } from './lib/api';
 import { toastError } from './lib/toast';
 
-// const PlaceholderPage: React.FC<{ title: string; icon?: React.ReactNode }> = ({ title, icon }) => (
-//   <div className="flex flex-col items-center justify-center h-96 text-center p-8 bg-card rounded-xl border border-border border-dashed">
-//     <div className="text-muted-foreground mb-4 scale-150">
-//       {icon || <ClipboardList size={48} />}
-//     </div>
-//     <h2 className="text-xl font-bold text-foreground">{title}</h2>
-//     <p className="text-muted-foreground mt-2">This feature is part of the full application scaffolding.</p>
-//   </div>
-// );
-
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
 
