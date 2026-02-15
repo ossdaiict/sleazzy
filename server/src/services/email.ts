@@ -75,7 +75,7 @@ export async function sendApprovalNotification(
     );
     return { sent: true };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : JSON.stringify(err, null, 2);
     console.error('Failed to send approval notification email:', message);
     return { sent: false, error: message };
   }
