@@ -7,6 +7,7 @@ package-lock.json
 .env.local
 .env.production
 .env.development
+*.env
 
 # Build outputs
 server/dist/
@@ -15,7 +16,7 @@ dist/
 build/
 
 # Logs
-logs/*.log
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -37,11 +38,14 @@ Thumbs.db
 *.tmp
 .cache/
 
-# Sensitive files (keep templates only)
+# Sensitive files
 *.pem
 *.key
 *.crt
-*.env.production
 
 # PM2
 .pm2/
+
+# VPS specific (generated on server)
+ecosystem.config.js.backup
+webhook-server.log

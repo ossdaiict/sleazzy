@@ -10,7 +10,7 @@ git pull origin main
 # Install server dependencies
 echo "📦 Installing server dependencies..."
 cd server
-npm install
+npm install --production
 npm run build
 cd ..
 
@@ -23,11 +23,11 @@ cd ..
 
 # Restart PM2 processes
 echo "🔄 Restarting PM2 processes..."
-pm2 restart sleazzy-api || pm2 start ecosystem.config.js
+pm2 restart ecosystem.config.js --update-env
 
 # Reload Nginx to ensure latest config
 echo "🔄 Reloading Nginx..."
-nginx -t && systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 
 echo "✅ Deployment completed successfully!"
 echo "🌐 Application available at: http://72.60.220.43/sleazzy"
