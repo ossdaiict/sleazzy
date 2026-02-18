@@ -33,20 +33,18 @@
 
 ### **VPS Access**
 ```bash
-ssh root@72.60.220.43
-Password: GDGisbest@2025
+ssh root@YOUR_VPS_IP
 ```
 
-### **Webhook Secret (SAVE THIS!)**
-```
-34515080e3ff7447c0112ba83a8c68076c26b5fa560971fb3ffb730cb3f55592
-```
+### **Webhook Secret**
+The webhook secret was generated during setup and saved to `/root/.bashrc` on your VPS.
+Check it with: `grep WEBHOOK_SECRET /root/.bashrc`
 
 ### **Application URLs**
-- **Main App**: http://72.60.220.43/sleazzy
-- **API**: http://72.60.220.43/sleazzy/api
-- **Health Check**: http://72.60.220.43/sleazzy/health
-- **Webhook** (GitHub only): http://72.60.220.43/webhook
+- **Main App**: http://YOUR_VPS_IP/sleazzy
+- **API**: http://YOUR_VPS_IP/sleazzy/api
+- **Health Check**: http://YOUR_VPS_IP/sleazzy/health
+- **Webhook** (GitHub only): http://YOUR_VPS_IP/webhook
 
 ---
 
@@ -56,7 +54,7 @@ Password: GDGisbest@2025
 
 SSH into the VPS and edit the environment file:
 ```bash
-ssh root@72.60.220.43
+ssh root@YOUR_VPS_IP
 nano /var/www/sleazzy/server/.env
 ```
 
@@ -83,7 +81,7 @@ pm2 restart all
 1. Go to: https://github.com/ossdaiict/sleazzy/settings/hooks
 2. Click **"Add webhook"**
 3. Configure:
-   - **Payload URL**: `http://72.60.220.43/webhook`
+   - **Payload URL**: `http://YOUR_VPS_IP/webhook`
    - **Content type**: `application/json`
    - **Secret**: `34515080e3ff7447c0112ba83a8c68076c26b5fa560971fb3ffb730cb3f55592`
    - **Which events?**: Select "Just the push event"
@@ -181,7 +179,7 @@ Ready for more projects:
 ## 🔄 Deployment Flow
 
 1. **You push code to GitHub** → `git push origin main`
-2. **GitHub webhook triggers** → POST to `http://72.60.220.43/webhook`
+2. **GitHub webhook triggers** → POST to `http://YOUR_VPS_IP/webhook`
 3. **Webhook server receives** → Verifies signature
 4. **Deployment script runs** → `deploy.sh`
    - Pulls latest code
@@ -189,7 +187,7 @@ Ready for more projects:
    - Builds project
    - Restarts PM2 processes
    - Reloads Nginx
-5. **Application updated** → Available at `http://72.60.220.43/sleazzy`
+5. **Application updated** → Available at `http://YOUR_VPS_IP/sleazzy`
 
 ---
 
@@ -205,7 +203,7 @@ Ready for more projects:
    ```bash
    # On your local machine
    ssh-keygen -t rsa -b 4096
-   ssh-copy-id root@72.60.220.43
+   ssh-copy-id root@YOUR_VPS_IP
    ```
 
 3. ✅ Disable password authentication (after setting up SSH keys):
@@ -257,7 +255,7 @@ When you're ready to host another project:
 
 ✅ **VPS is clean and organized**  
 ✅ **Project deployed at** `/var/www/sleazzy`  
-✅ **Application accessible at** http://72.60.220.43/sleazzy  
+✅ **Application accessible at** http://YOUR_VPS_IP/sleazzy  
 ✅ **Auto-deployment configured**  
 ⚠️ **Action Required**: Configure environment variables  
 ⚠️ **Action Required**: Set up GitHub webhook  
@@ -275,7 +273,7 @@ sudo systemctl status nginx
 ### **Test the application:**
 ```bash
 # Health check
-curl http://72.60.220.43/sleazzy/health
+curl http://YOUR_VPS_IP/sleazzy/health
 
 # Webhook health check
 curl http://localhost:9000/health

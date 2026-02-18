@@ -30,4 +30,4 @@ echo "🔄 Reloading Nginx..."
 sudo nginx -t && sudo systemctl reload nginx
 
 echo "✅ Deployment completed successfully!"
-echo "🌐 Application available at: http://72.60.220.43/sleazzy"
+echo "🌐 Application available at: http://YOUR_VPS_IP/sleazzy"

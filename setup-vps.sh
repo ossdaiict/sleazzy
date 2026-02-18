@@ -12,10 +12,19 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# VPS Details
-VPS_IP="72.60.220.43"
-VPS_USER="root"
-VPS_PASSWORD="GDGisbest@2025"
+# VPS Details - SET THESE BEFORE RUNNING
+VPS_IP="${VPS_IP:-}"
+VPS_USER="${VPS_USER:-root}"
+VPS_PASSWORD="${VPS_PASSWORD:-}"
+
+if [ -z "$VPS_IP" ] || [ -z "$VPS_PASSWORD" ]; then
+    echo -e "${RED}Error: VPS credentials not set!${NC}"
+    echo "Please set environment variables:"
+    echo "  export VPS_IP='your_vps_ip'"
+    echo "  export VPS_USER='root'"
+    echo "  export VPS_PASSWORD='your_password'"
+    exit 1
+fi
 
 echo -e "${BLUE}================================${NC}"
 echo -e "${BLUE}  VPS Remote Setup Script${NC}"
@@ -196,10 +205,10 @@ echo -e "${YELLOW}Next Steps:${NC}"
 echo "1. Edit environment: nano ${PROJECT_DIR}/server/.env"
 echo "2. Add GitHub webhook at:"
 echo "   https://github.com/ossdaiict/sleazzy/settings/hooks"
-echo "   Payload URL: http://72.60.220.43/webhook"
+echo "   Payload URL: http://YOUR_VPS_IP/webhook"
 echo "   Secret: ${WEBHOOK_SECRET}"
 echo ""
-echo -e "${GREEN}Application URL: http://72.60.220.43/sleazzy${NC}"
+echo -e "${GREEN}Application URL: http://YOUR_VPS_IP/sleazzy${NC}"
 echo ""
 echo "PM2 Status:"
 pm2 status

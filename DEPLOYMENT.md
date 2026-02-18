@@ -8,9 +8,9 @@
 - GitHub repository access
 
 ### VPS Credentials
-- IP: `72.60.220.43`
+- IP: `YOUR_VPS_IP`
 - User: `root`
-- Password: `GDGisbest@2025`
+- Password: `YOUR_PASSWORD` (keep this secure!)
 
 ---
 
@@ -18,7 +18,7 @@
 
 ### 1. Connect to VPS
 ```bash
-ssh root@72.60.220.43
+ssh root@YOUR_VPS_IP
 ```
 
 ### 2. Download and Run Setup Script
@@ -82,7 +82,7 @@ grep WEBHOOK_SECRET /root/.bashrc
 1. Go to your repository: https://github.com/ossdaiict/sleazzy
 2. Navigate to **Settings** → **Webhooks** → **Add webhook**
 3. Configure:
-   - **Payload URL**: `http://72.60.220.43/webhook`
+   - **Payload URL**: `http://YOUR_VPS_IP/webhook`
    - **Content type**: `application/json`
    - **Secret**: Paste the webhook secret from step 1
    - **Events**: Select "Just the push event"
@@ -190,10 +190,10 @@ pm2 logs
 
 ## 🌐 Access Points
 
-- **Application**: http://72.60.220.43/sleazzy
-- **API**: http://72.60.220.43/sleazzy/api
-- **Health Check**: http://72.60.220.43/sleazzy/health
-- **Webhook**: http://72.60.220.43/webhook (GitHub only)
+- **Application**: http://YOUR_VPS_IP/sleazzy
+- **API**: http://YOUR_VPS_IP/sleazzy/api
+- **Health Check**: http://YOUR_VPS_IP/sleazzy/health
+- **Webhook**: http://YOUR_VPS_IP/webhook (GitHub only)
 
 ---
 
@@ -236,7 +236,7 @@ sudo lsof -i :80     # Nginx port
 2. **Set up SSH key authentication**:
    ```bash
    ssh-keygen -t rsa -b 4096
-   ssh-copy-id root@72.60.220.43
+   ssh-copy-id root@YOUR_VPS_IP
    ```
 3. **Disable password authentication** in `/etc/ssh/sshd_config`
 4. **Enable firewall**:
@@ -284,7 +284,7 @@ pm2 set pm2-logrotate:retain 7
 ## 🚀 Deployment Flow
 
 1. **Developer pushes to GitHub** → `git push origin main`
-2. **GitHub webhook triggers** → Sends POST to `http://72.60.220.43/webhook`
+2. **GitHub webhook triggers** → Sends POST to `http://YOUR_VPS_IP/webhook`
 3. **Webhook server receives** → Verifies signature
 4. **Deployment script runs** → `deploy.sh`
    - Pulls latest code
@@ -292,7 +292,7 @@ pm2 set pm2-logrotate:retain 7
    - Builds project
    - Restarts PM2 processes
    - Reloads Nginx
-5. **Application updated** → Available at `http://72.60.220.43/sleazzy`
+5. **Application updated** → Available at `http://YOUR_VPS_IP/sleazzy`
 
 ---
 
