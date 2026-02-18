@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Calendar } from '../components/ui/calendar';
+import { Calendar, type CalendarEvent } from '../components/ui/calendar';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +77,27 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   const eventDates = allEvents.map(e => new Date(e.date));
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
+
+  const calendarEventsWithVenue: CalendarEvent[] = React.useMemo(() =>
+    allEvents.map(e => ({
+      eventName: e.eventName,
+      clubName: e.clubName,
+      date: e.date,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      venueName: getVenueName(e.venueId),
+    })),
+    [allEvents, venues]
+  );
+
+  const upcomingEvents = React.useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return allEvents
+      .filter(e => new Date(e.date) >= now)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 6);
+  }, [allEvents]);
 
   if (error) {
     return (
@@ -168,6 +189,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
+                    events={calendarEventsWithVenue}
                     modifiers={{
                       hasEvents: eventDates
                     }}
@@ -293,6 +315,64 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Upcoming Events */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      >
+        <Card className="border border-borderSoft rounded-xl">
+          <CardHeader className="border-b border-borderSoft">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg sm:text-xl">Upcoming Events</CardTitle>
+                <CardDescription className="mt-1">Events happening in the coming days across all venues</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            {upcomingEvents.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {upcomingEvents.map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    whileHover={{ y: -2 }}
+                  >
+                    <Card className="border border-borderSoft rounded-xl hover:border-brand/30 hover:shadow-md transition-all duration-200 h-full">
+                      <CardContent className="p-4">
+                        <div className="font-semibold text-foreground text-sm leading-tight mb-1">{event.eventName}</div>
+                        <div className="text-xs text-primary font-medium mb-3">{event.clubName}</div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <CalendarPlus size={12} className="text-primary/60 shrink-0" />
+                            <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock size={12} className="text-primary/60 shrink-0" />
+                            <span>{event.startTime} - {event.endTime}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <MapPin size={12} className="text-primary/60 shrink-0" />
+                            <span>{getVenueName(event.venueId)}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No upcoming events scheduled.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Quick Policy Reminder */}
       <motion.div
