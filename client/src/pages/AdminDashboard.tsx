@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Skeleton } from '../components/ui/skeleton';
-import { Calendar } from '../components/ui/calendar';
+import { Calendar, type CalendarEvent } from '../components/ui/calendar';
 import AddBookingDialog from '../components/AddBookingDialog';
 
 
@@ -96,6 +96,19 @@ const AdminDashboard: React.FC = () => {
     .map(e => new Date(e.date));
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
+
+  const calendarEventsWithVenue: CalendarEvent[] = React.useMemo(() =>
+    calendarEvents.map(e => ({
+      eventName: e.eventName,
+      clubName: e.clubName,
+      date: e.date,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      venueName: getVenueName(e.venueId),
+      status: e.status,
+    })),
+    [calendarEvents, venues]
+  );
 
   if (error) {
     return (
@@ -267,6 +280,7 @@ const AdminDashboard: React.FC = () => {
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
+                  events={calendarEventsWithVenue}
                   modifiers={{
                     hasEvents: eventDates
                   }}

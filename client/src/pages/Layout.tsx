@@ -207,6 +207,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             {children}
           </div>
         </main>
+
+        {/* Footer */}
+        <footer className="border-t border-borderSoft py-4 px-6 text-center">
+          <p className="text-xs text-muted-foreground font-medium">
+            Made with ❤️ by GDG On Campus DAU
+          </p>
+        </footer>
       </div>
 
       {/* Mobile Sidebar */}
