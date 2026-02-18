@@ -148,7 +148,7 @@ export WEBHOOK_SECRET="${WEBHOOK_SECRET}"
 echo -e "${YELLOW}Step 6: Building project...${NC}"
 
 cd ${PROJECT_DIR}/server
-npm install --production
+npm install
 npm run build
 
 cd ${PROJECT_DIR}/client

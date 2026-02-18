@@ -10,7 +10,7 @@ git pull origin main
 # Install server dependencies
 echo "📦 Installing server dependencies..."
 cd server
-npm install --production
+npm install
 npm run build
 cd ..
 

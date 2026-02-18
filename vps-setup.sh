@@ -144,7 +144,7 @@ echo -e "${YELLOW}Step 6: Installing dependencies and building...${NC}"
 # Install server dependencies
 echo "Installing server dependencies..."
 cd ${PROJECT_DIR}/server
-npm install --production
+npm install
 npm run build
 
 # Install client dependencies and build
