@@ -25,4 +25,9 @@ cd ..
 echo "🔄 Restarting PM2 processes..."
 pm2 restart sleazzy-api || pm2 start ecosystem.config.js
 
+# Reload Nginx to ensure latest config
+echo "🔄 Reloading Nginx..."
+nginx -t && systemctl reload nginx
+
 echo "✅ Deployment completed successfully!"
+echo "🌐 Application available at: http://72.60.220.43/sleazzy"

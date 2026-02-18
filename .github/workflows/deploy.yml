@@ -9,16 +9,18 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Deploy via SSH
+      - name: 🚀 Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_KEY }}
           password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT }}
+          port: ${{ secrets.PORT || 22 }}
           script: |
+            echo "🔄 Starting deployment..."
             cd /root/sleazzy
             bash deploy.sh
+            echo "✅ Deployment completed!"
+            echo "🌐 Application: http://72.60.220.43/sleazzy"

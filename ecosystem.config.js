@@ -9,12 +9,7 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 4000,
-        SUPABASE_URL: 'your_supabase_url_here',
-        SUPABASE_SERVICE_ROLE_KEY: 'your_supabase_key_here'
-      },
+      env_file: '/root/sleazzy/server/.env',
       error_file: '/root/sleazzy/logs/api-error.log',
       out_file: '/root/sleazzy/logs/api-out.log',
       log_file: '/root/sleazzy/logs/api-combined.log',
