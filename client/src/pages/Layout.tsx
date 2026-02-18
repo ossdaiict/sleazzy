@@ -17,6 +17,7 @@ import {
 import { User } from '../types';
 import { Button } from '../components/ui/button';
 import { ThemeToggle } from '../components/theme-toggle';
+import NotificationPanel from '../components/NotificationPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -150,7 +151,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 md:ml-64 lg:ml-72 flex flex-col min-h-screen min-h-[100dvh]">
+      <div className="flex-1 md:ml-64 lg:ml-72 flex flex-col h-screen h-[100dvh]">
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -10 }}
@@ -180,10 +181,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <ThemeToggle />
             </div>
 
-            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full glass hover:bg-white/60 dark:hover:bg-black/40 transition-all">
-              <Bell size={20} className="text-textSecondary" />
-              <span className="absolute top-2 right-2 h-2.5 w-2.5 bg-error rounded-full border-2 border-white dark:border-black animate-pulse" />
-            </Button>
+            {user.role === 'admin' ? (
+              <NotificationPanel />
+            ) : (
+              <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full glass hover:bg-white/60 dark:hover:bg-black/40 transition-all">
+                <Bell size={20} className="text-textSecondary" />
+              </Button>
+            )}
 
             <Button
               variant="ghost"

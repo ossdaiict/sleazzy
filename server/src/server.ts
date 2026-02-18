@@ -6,6 +6,7 @@ import cors from 'cors';
 
 import bookingsRoutes from './routes/bookings';
 import adminRoutes from './routes/admin';
+import notificationRoutes from './routes/notifications';
 import authRoutes from './routes/auth';
 import { supabase } from './supabaseClient';
 
@@ -26,6 +27,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api', bookingsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/notifications', notificationRoutes);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, ChevronRight, AlertCircle, Calendar as CalendarIcon, Users, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronRight, AlertCircle, Calendar as CalendarIcon, Users, AlertTriangle, RefreshCw, Plus } from 'lucide-react';
 import { apiRequest, mapBooking, type ApiBooking, type ApiVenue } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { toastError, toastSuccess } from '../lib/toast';
@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Skeleton } from '../components/ui/skeleton';
 import { Calendar } from '../components/ui/calendar';
+import AddBookingDialog from '../components/AddBookingDialog';
 
 
 const AdminDashboard: React.FC = () => {
@@ -28,6 +29,7 @@ const AdminDashboard: React.FC = () => {
   const [calendarEvents, setCalendarEvents] = React.useState<Booking[]>([]);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   const [error, setError] = React.useState<string | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = React.useState(false);
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
@@ -120,7 +122,7 @@ const AdminDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="space-y-6 sm:space-y-8"
@@ -130,7 +132,7 @@ const AdminDashboard: React.FC = () => {
           <Skeleton className="h-5 w-80 sm:w-96" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {[1,2,3,4].map(i => (
+          {[1, 2, 3, 4].map(i => (
             <Skeleton key={i} className="h-32 sm:h-36 rounded-2xl" />
           ))}
         </div>
@@ -141,7 +143,7 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
@@ -156,6 +158,13 @@ const AdminDashboard: React.FC = () => {
         >
           <h2 className="text-5xl sm:text-6xl font-extrabold text-foreground tracking-tighter">Admin Dashboard</h2>
           <p className="text-textSecondary mt-3 text-lg font-medium">Monitor venue bookings, manage approvals, and track system performance.</p>
+          <Button
+            onClick={() => setAddDialogOpen(true)}
+            className="mt-4 gap-2 rounded-xl"
+          >
+            <Plus size={16} />
+            Add Event
+          </Button>
         </motion.div>
       </div>
 
@@ -396,6 +405,12 @@ const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </motion.div>
+
+      <AddBookingDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onCreated={fetchData}
+      />
     </motion.div>
   );
 };

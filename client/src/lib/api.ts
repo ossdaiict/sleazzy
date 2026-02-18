@@ -110,6 +110,7 @@ export type ApiBooking = {
   event_type?: string;
   expected_attendees?: number;
   batch_id?: string;
+  is_public?: boolean;
 };
 
 export const mapBooking = (booking: ApiBooking) => {
@@ -129,5 +130,6 @@ export const mapBooking = (booking: ApiBooking) => {
     eventType: booking.event_type as any,
     expectedAttendees: booking.expected_attendees,
     batchId: booking.batch_id,
+    isPublic: booking.is_public ?? false,
   };
 };

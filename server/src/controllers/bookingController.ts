@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import { sendApprovalNotification } from '../services/email';
+import { createBookingPendingNotifications } from '../services/notification';
 import { randomUUID } from 'crypto';
 
 type EventType = 'co_curricular' | 'open_all' | 'closed_club';
@@ -196,6 +197,9 @@ export const createBooking = async (req: Request, res: Response) => {
     if (!sent && error) {
       console.error('Approval email failed (bookings still created):', error);
     }
+
+    // Also persist as in-app notifications
+    await createBookingPendingNotifications(items);
   }
 
   return res.status(201).json(createdBookings);
