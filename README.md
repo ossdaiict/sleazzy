@@ -168,6 +168,18 @@ npm run preview # preview the production bundle locally
 
 For full VPS deployment instructions (Nginx, PM2, GitHub Actions), see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+## Contributing
+
+Contributions are welcome! If you'd like to help improve Sleazzy:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m "Add my feature"`)
+4. Push to your branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+Feel free to open an issue for bug reports, feature requests, or questions.
+
 ## License
 
-Private project — all rights reserved.
+This project is licensed under the [MIT License](LICENSE).
