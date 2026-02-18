@@ -116,8 +116,10 @@ NODE_ENV=production
 ```env
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
-VITE_API_URL=/sleazzy/api
+VITE_API_URL=/sleazzy
 ```
+
+**Note**: The `VITE_API_URL` should be `/sleazzy` (not `/sleazzy/api`) because the API routes already include the `/api` prefix.
 
 ## 🐛 Troubleshooting
 
