@@ -41,14 +41,21 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
       return res.status(401).json({ error: 'Invalid token' });
     }
 
+    // Query profile with RLS bypassed (service role key automatically bypasses RLS)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', userData.user.id)
       .single();
 
-    if (profileError || !profile) {
-      return res.status(401).json({ error: 'User role not found' });
+    if (profileError) {
+      console.error('Profile lookup error:', profileError);
+      return res.status(401).json({ error: 'User role not found', details: profileError.message });
+    }
+
+    if (!profile) {
+      console.error('Profile not found for user:', userData.user.id);
+      return res.status(401).json({ error: 'User profile does not exist' });
     }
 
     req.user = {
