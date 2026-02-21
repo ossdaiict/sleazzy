@@ -59,7 +59,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     conflict: '',
     venue: '',
     venueType: '' as 'success' | 'warning' | 'info' | '',
-    hours: ''
+    hours: '',
+    coCurricularLimit: ''
   });
 
   useEffect(() => {
@@ -253,6 +254,44 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     checkConflicts();
   }, [formData.date, formData.startTime, formData.endTime, formData.clubName, formData.venueIds]);
 
+  // Co-curricular limit check
+  useEffect(() => {
+    if (formData.eventType !== 'co_curricular' || !formData.clubName) {
+      setWarnings(prev => ({ ...prev, coCurricularLimit: '' }));
+      return;
+    }
+
+    const checkLimit = async () => {
+      try {
+        const selectedClub = clubs.find(c => c.name === formData.clubName);
+        if (!selectedClub) return;
+
+        const { count, limit } = await apiRequest<{ count: number; limit: number }>(
+          `/api/bookings/co-curricular-count?clubId=${selectedClub.id}`,
+          { auth: true }
+        );
+
+        if (count >= limit) {
+          setWarnings(prev => ({
+            ...prev,
+            coCurricularLimit: `This club has already booked ${limit} co-curricular events this semester. No more are allowed.`
+          }));
+        } else {
+          setWarnings(prev => ({
+            ...prev,
+            coCurricularLimit: count === limit - 1
+              ? `Warning: This will be the last co-curricular event allowed this semester (${count}/${limit} used).`
+              : ''
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to check co-curricular limit:', err);
+      }
+    };
+
+    checkLimit();
+  }, [formData.eventType, formData.clubName, clubs]);
+
   const handleChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -270,7 +309,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (warnings.timeline || warnings.conflict || warnings.hours) {
+    if (warnings.timeline || warnings.conflict || warnings.hours || warnings.coCurricularLimit?.startsWith('This club has already')) {
       toastError('Please resolve the warnings before submitting.');
       return;
     }
@@ -312,7 +351,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     }
   };
 
-  const hasErrors = !!warnings.timeline || !!warnings.conflict || !!warnings.hours;
+  const hasErrors = !!warnings.timeline || !!warnings.conflict || !!warnings.hours || !!warnings.coCurricularLimit?.startsWith('This club has already');
 
   return (
     <motion.div
@@ -415,6 +454,21 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       </div>
                     </div>
                   </div>
+                  {warnings.coCurricularLimit && (
+                    <div className={`p-4 rounded-xl border shadow-sm hover:shadow-md transition-all backdrop-blur-sm ${warnings.coCurricularLimit.startsWith('This club has already')
+                        ? 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 hover:border-red-300'
+                        : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 hover:border-amber-300'
+                      }`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`h-2 w-2 rounded-full mt-2 shrink-0 ${warnings.coCurricularLimit.startsWith('This club has already') ? 'bg-red-500' : 'bg-amber-500'
+                          }`} />
+                        <div>
+                          <span className="font-semibold block text-textPrimary text-sm mb-1">Co-curricular Limit</span>
+                          <p className="text-xs text-textSecondary leading-relaxed">{warnings.coCurricularLimit}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -710,7 +764,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                             exit={{ scale: 0.8, opacity: 0 }}
                             transition={{ type: "spring", stiffness: 300, damping: 25 }}
                           >
-                            <Badge 
+                            <Badge
                               className={cn(
                                 "pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 font-semibold shadow-md",
                                 isCatB
@@ -719,9 +773,9 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                               )}
                             >
                               {v.name}
-                              <button 
-                                type="button" 
-                                onClick={() => handleVenueToggle(id)} 
+                              <button
+                                type="button"
+                                onClick={() => handleVenueToggle(id)}
                                 className={cn(
                                   "ml-0.5 hover:bg-current/20 rounded-full p-0.5 transition-all hover:scale-110"
                                 )}
@@ -740,8 +794,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                     <Alert
                       className={cn(
                         "rounded-xl border-2 mt-3",
-                        warnings.venueType === 'warning' 
-                          ? "border-warning/30 bg-warning/5" 
+                        warnings.venueType === 'warning'
+                          ? "border-warning/30 bg-warning/5"
                           : "border-success/30 bg-success/5"
                       )}
                     >

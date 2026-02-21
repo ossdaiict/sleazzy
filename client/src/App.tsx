@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/error-boundary';
 import Layout from './pages/Layout';
 import ClubDashboard from './lib/ClubDashboard';
@@ -10,6 +10,7 @@ import MasterSchedule from './pages/MasterSchedule';
 import PolicyPage from './pages/PolicyPage';
 import MyBookings from './pages/MyBookings';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 import { User } from './types';
 import { ClipboardList, Layers } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -125,28 +126,35 @@ const App: React.FC = () => {
 
   if (!user) {
     return (
-      <Login onLogin={handleLogin} />
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="*" element={<LandingPage onGoToLogin={() => { window.location.href = '/login'; }} />} />
+          </Routes>
+        </BrowserRouter>
+      </ErrorBoundary>
     );
   }
 
   return (
     <ErrorBoundary>
-      <HashRouter>
+      <BrowserRouter>
         <Layout user={user} onLogout={handleLogout}>
           <Routes>
-          <Route path="/" element={user.role === 'club' ? <ClubDashboard user={user} /> : <AdminDashboard />} />
+            <Route path="/" element={user.role === 'club' ? <ClubDashboard user={user} /> : <AdminDashboard />} />
 
-          <Route path="/book" element={<BookSlot currentUser={user} />} />
-          <Route path="/my-bookings" element={<MyBookings />} />
-          <Route path="/policy" element={<PolicyPage />} />
+            <Route path="/book" element={<BookSlot currentUser={user} />} />
+            <Route path="/my-bookings" element={<MyBookings />} />
+            <Route path="/policy" element={<PolicyPage />} />
 
-          <Route path="/admin/requests" element={<AdminRequests />} />
-          <Route path="/admin/schedule" element={<MasterSchedule />} />
+            <Route path="/admin/requests" element={<AdminRequests />} />
+            <Route path="/admin/schedule" element={<MasterSchedule />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
-    </HashRouter>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 };

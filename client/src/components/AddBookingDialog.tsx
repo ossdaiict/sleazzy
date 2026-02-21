@@ -50,6 +50,7 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
     const [venues, setVenues] = useState<ApiVenue[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [coCurricularWarning, setCoCurricularWarning] = useState('');
 
     // Load venues and clubs
     useEffect(() => {
@@ -81,8 +82,36 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
             setExpectedAttendees('');
             setIsPublic(false);
             setError(null);
+            setCoCurricularWarning('');
         }
     }, [open]);
+
+    // Co-curricular limit check
+    useEffect(() => {
+        if (eventType !== 'co_curricular' || !sbgClubId) {
+            setCoCurricularWarning('');
+            return;
+        }
+
+        apiRequest<{ count: number; limit: number }>(
+            `/api/bookings/co-curricular-count?clubId=${sbgClubId}`,
+            { auth: true }
+        )
+            .then(({ count, limit }) => {
+                if (count >= limit) {
+                    setCoCurricularWarning(
+                        `SBG has already booked ${limit} co-curricular events this semester. No more are allowed.`
+                    );
+                } else if (count === limit - 1) {
+                    setCoCurricularWarning(
+                        `Warning: This will be the last co-curricular event allowed this semester (${count}/${limit} used).`
+                    );
+                } else {
+                    setCoCurricularWarning('');
+                }
+            })
+            .catch(() => setCoCurricularWarning(''));
+    }, [eventType, sbgClubId]);
 
     const toggleVenue = (venueId: string) => {
         setSelectedVenues((prev) =>
@@ -259,6 +288,15 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                         </Select>
                     </div>
 
+                    {coCurricularWarning && (
+                        <div className={`text-sm rounded-lg px-3 py-2 border ${coCurricularWarning.startsWith('SBG has already')
+                                ? 'text-error bg-error/10 border-error/20'
+                                : 'text-warning bg-warning/10 border-warning/20'
+                            }`}>
+                            {coCurricularWarning}
+                        </div>
+                    )}
+
                     {/* Expected Attendees */}
                     <div className="grid gap-2">
                         <Label htmlFor="add-attendees">Expected Attendees</Label>
@@ -306,7 +344,7 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                     >
                         Cancel
                     </Button>
-                    <Button onClick={handleCreate} disabled={saving} className="gap-2">
+                    <Button onClick={handleCreate} disabled={saving || coCurricularWarning.startsWith('SBG has already')} className="gap-2">
                         {saving ? (
                             <Loader2 size={14} className="animate-spin" />
                         ) : (

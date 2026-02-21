@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import { sendApprovalNotification } from '../services/email';
 import { createBookingPendingNotifications } from '../services/notification';
+import { getSemesterRange, countCoCurricularBookings, CO_CURRICULAR_LIMIT } from '../services/semesterUtils';
 import { randomUUID } from 'crypto';
 
 type EventType = 'co_curricular' | 'open_all' | 'closed_club';
@@ -120,6 +121,16 @@ export const createBooking = async (req: Request, res: Response) => {
 
   try {
 
+    // 2. Co-curricular limit: max 2 per club per semester
+    if (eventType === 'co_curricular') {
+      const { start: semStart, end: semEnd } = getSemesterRange(start);
+      const count = await countCoCurricularBookings(clubId, semStart, semEnd);
+      if (count >= CO_CURRICULAR_LIMIT) {
+        return res.status(400).json({
+          error: `This club has already booked ${CO_CURRICULAR_LIMIT} co-curricular events this semester. The maximum allowed is ${CO_CURRICULAR_LIMIT}.`,
+        });
+      }
+    }
 
     // 3. Check Venue Conflicts (Explicit)
     const { conflict: venueConflict, message: venueMessage } = await performVenueConflictCheck(venueIds, startTime, endTime);

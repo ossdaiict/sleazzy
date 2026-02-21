@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../supabaseClient';
 import authMiddleware from '../middleware/auth';
 import { createBooking, checkConflict } from '../controllers/bookingController';
+import { getSemesterRange, countCoCurricularBookings, CO_CURRICULAR_LIMIT } from '../services/semesterUtils';
 
 const router = express.Router();
 
@@ -54,6 +55,22 @@ router.get('/public-bookings', async (_req, res) => {
   }
 
   return res.json(data || []);
+});
+
+// Returns the co-curricular booking count for a club in the current semester
+router.get('/bookings/co-curricular-count', authMiddleware, async (req, res) => {
+  const clubId = req.query.clubId as string;
+  if (!clubId) {
+    return res.status(400).json({ error: 'clubId is required' });
+  }
+
+  try {
+    const { start, end } = getSemesterRange(new Date());
+    const count = await countCoCurricularBookings(clubId, start, end);
+    return res.json({ count, limit: CO_CURRICULAR_LIMIT });
+  } catch (err) {
+    return res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 export default router;

@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../supabaseClient';
 import authMiddleware from '../middleware/auth';
 import { createNotification } from '../services/notification';
+import { getSemesterRange, countCoCurricularBookings, CO_CURRICULAR_LIMIT } from '../services/semesterUtils';
 
 const router = express.Router();
 
@@ -123,6 +124,32 @@ router.put('/bookings/:id', async (req, res) => {
     return res.status(400).json({ error: 'No fields to update' });
   }
 
+  // Co-curricular limit check when changing event_type to co_curricular
+  if (event_type === 'co_curricular') {
+    // Fetch the existing booking to get club_id and start_time
+    const { data: existing, error: existErr } = await supabase
+      .from('bookings')
+      .select('club_id, start_time, event_type')
+      .eq('id', id)
+      .single();
+
+    if (existErr || !existing) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Only enforce when the type is being changed TO co_curricular (or already is)
+    const eventDate = new Date(start_time || existing.start_time);
+    const { start: semStart, end: semEnd } = getSemesterRange(eventDate);
+    const count = await countCoCurricularBookings(
+      existing.club_id, semStart, semEnd, id
+    );
+    if (count >= CO_CURRICULAR_LIMIT) {
+      return res.status(400).json({
+        error: `This club has already booked ${CO_CURRICULAR_LIMIT} co-curricular events this semester. The maximum allowed is ${CO_CURRICULAR_LIMIT}.`,
+      });
+    }
+  }
+
   const { data, error } = await supabase
     .from('bookings')
     .update(updateFields)
@@ -167,6 +194,18 @@ router.post('/bookings', async (req, res) => {
 
   if (!club_id || !event_name || !start_time || !end_time || !venue_ids || !Array.isArray(venue_ids) || venue_ids.length === 0) {
     return res.status(400).json({ error: 'Missing required fields (club_id, venue_ids, event_name, start_time, end_time)' });
+  }
+
+  // Co-curricular limit check
+  if (event_type === 'co_curricular') {
+    const eventDate = new Date(start_time);
+    const { start: semStart, end: semEnd } = getSemesterRange(eventDate);
+    const count = await countCoCurricularBookings(club_id, semStart, semEnd);
+    if (count >= CO_CURRICULAR_LIMIT) {
+      return res.status(400).json({
+        error: `This club has already booked ${CO_CURRICULAR_LIMIT} co-curricular events this semester. The maximum allowed is ${CO_CURRICULAR_LIMIT}.`,
+      });
+    }
   }
 
   const { randomUUID } = await import('crypto');
