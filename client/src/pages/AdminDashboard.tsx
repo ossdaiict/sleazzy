@@ -209,7 +209,6 @@ const AdminDashboard: React.FC = () => {
               Add Event
             </Button>
             <Button
-              variant="outline"
               onClick={exportAllEvents}
               disabled={isLoading || calendarEvents.length === 0}
               className="gap-2 rounded-xl"
@@ -389,7 +388,7 @@ const AdminDashboard: React.FC = () => {
                 <CardTitle className="text-lg sm:text-xl">All Events</CardTitle>
                 <CardDescription className="mt-1">Complete list of bookings visible to admin</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap">
+              <Button variant="outline" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap">
                 Export CSV
               </Button>
             </div>
