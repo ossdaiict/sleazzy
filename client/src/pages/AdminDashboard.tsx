@@ -31,6 +31,37 @@ const AdminDashboard: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
 
+  const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || id;
+
+  // generate a CSV export of all bookings visible to admin
+  const exportAllEvents = React.useCallback(() => {
+    if (calendarEvents.length === 0) {
+      toastError('No events to export');
+      return;
+    }
+    const headers = ['Event Name','Club Name','Date','Start Time','End Time','Venue','Status'];
+    const rows = calendarEvents.map(e => [
+      e.eventName,
+      e.clubName,
+      new Date(e.date).toLocaleDateString(),
+      e.startTime,
+      e.endTime,
+      getVenueName(e.venueId),
+      e.status,
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `all-events-${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [calendarEvents, getVenueName]);
+
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -75,8 +106,6 @@ const AdminDashboard: React.FC = () => {
       toastError(err, `Failed to ${status} booking. Please try again.`);
     }
   };
-
-  const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || id;
 
   const isSameDay = (d1: Date, d2: Date) => {
     return d1.getFullYear() === d2.getFullYear() &&
@@ -171,13 +200,23 @@ const AdminDashboard: React.FC = () => {
         >
           <h2 className="text-5xl sm:text-6xl font-extrabold text-foreground tracking-tighter">Admin Dashboard</h2>
           <p className="text-textSecondary mt-3 text-lg font-medium">Monitor venue bookings, manage approvals, and track system performance.</p>
-          <Button
-            onClick={() => setAddDialogOpen(true)}
-            className="mt-4 gap-2 rounded-xl"
-          >
-            <Plus size={16} />
-            Add Event
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              onClick={() => setAddDialogOpen(true)}
+              className="gap-2 rounded-xl"
+            >
+              <Plus size={16} />
+              Add Event
+            </Button>
+            <Button
+              variant="outline"
+              onClick={exportAllEvents}
+              disabled={isLoading || calendarEvents.length === 0}
+              className="gap-2 rounded-xl"
+            >
+              Export CSV
+            </Button>
+          </div>
         </motion.div>
       </div>
 
@@ -333,6 +372,101 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* All Events List (visible to admin) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.45 }}
+      >
+        <Card className="border border-borderSoft rounded-xl">
+          <CardHeader className="border-b border-borderSoft">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg sm:text-xl">All Events</CardTitle>
+                <CardDescription className="mt-1">Complete list of bookings visible to admin</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap">
+                Export CSV
+              </Button>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="p-6">
+                <Skeleton className="h-12 w-full mb-4" />
+                <Skeleton className="h-12 w-full mb-4" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : calendarEvents.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-textMuted">No events available.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table className="w-full min-w-[600px] sm:min-w-0 text-left text-sm">
+                  <thead className="bg-hoverSoft border-b border-borderSoft uppercase tracking-wider text-xs font-semibold text-textMuted">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-4">Club / Event</th>
+                      <th className="px-4 sm:px-6 py-4 hidden sm:table-cell">Venue & Time</th>
+                      <th className="px-4 sm:px-6 py-4">Date</th>
+                      <th className="px-4 sm:px-6 py-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {calendarEvents.map((evt, index) => (
+                      <motion.tr
+                        key={evt.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="hover:bg-hoverSoft transition-colors"
+                      >
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className="font-semibold text-textPrimary">{evt.eventName}</div>
+                          <div className="text-xs text-textMuted mt-0.5">{evt.clubName}</div>
+                          <div className="text-xs text-textMuted mt-1 sm:hidden">
+                            <div className="flex items-center gap-1">
+                              <CalendarIcon size={12} /> {evt.startTime} - {evt.endTime}
+                            </div>
+                            <div>{getVenueName(evt.venueId)}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
+                          <div className="flex items-center gap-1.5 text-textPrimary">
+                            {getVenueName(evt.venueId)}
+                          </div>
+                          <div className="text-xs text-textMuted mt-0.5 flex items-center gap-1">
+                            <CalendarIcon size={12} /> {evt.startTime} - {evt.endTime}
+                          </div>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <CalendarIcon size={14} className="text-textMuted" />
+                            {new Date(evt.date).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <Badge 
+                            variant={
+                              evt.status === 'approved' ? 'success' : 
+                              evt.status === 'rejected' ? 'destructive' : 
+                              'pending'
+                            }
+                          >
+                            {evt.status.charAt(0).toUpperCase() + evt.status.slice(1)}
+                          </Badge>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
