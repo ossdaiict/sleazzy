@@ -12,7 +12,36 @@ export type PendingBookingItem = {
   startTime: string;
   endTime: string;
   clubName?: string;
+  eventType?: string;
 };
+
+function formatEventTypeLabel(eventType?: string): string {
+  if (!eventType) return 'General';
+  return eventType
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDateLabel(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return iso;
+  return parsed.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatTimeLabel(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return iso;
+  return parsed.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
 
 function isEmailJsConfigured(): boolean {
   return !!(
@@ -40,24 +69,52 @@ export async function sendApprovalNotification(
 
   if (items.length === 0) return { sent: false };
 
-  const list = items
-    .map(
-      (i) =>
-        `• ${i.venueName}: "${i.eventName}" — ${i.startTime} to ${i.endTime}${i.clubName ? ` (${i.clubName})` : ''}`
-    )
-    .join('\n');
+  const blocks = items.map((i, index) => {
+    const dateLabel = formatDateLabel(i.startTime);
+    const startTimeLabel = formatTimeLabel(i.startTime);
+    const endTimeLabel = formatTimeLabel(i.endTime);
 
-  const message = `The following venue booking(s) require your approval:\n\n${list}\n\nPlease review them in the admin dashboard.`;
+    return `Request ${index + 1}\nVenue: ${i.venueName}\nDate: ${dateLabel}\nTime: ${startTimeLabel} - ${endTimeLabel}\nEvent: ${i.eventName}${i.clubName ? `\nRequested by: ${i.clubName}` : ''}`;
+  });
+
+  const message = `Respected Sir/Madam,\n\nKindly review the following venue booking request(s):\n\n${blocks.join('\n\n')}\n\nPlease review and take action from the admin dashboard.\n\nRegards,\nSleazzy Venue Booking System`;
 
   const messageHtml = `
-    <p>The following venue booking(s) require your approval:</p>
-    <ul>${items.map((i) => `<li><strong>${i.venueName}</strong>: "${i.eventName}" — ${i.startTime} to ${i.endTime}${i.clubName ? ` (${i.clubName})` : ''}</li>`).join('')}</ul>
-    <p>Please review them in the admin dashboard.</p>
+    <p>Respected Sir/Madam,</p>
+    <p>Kindly review the following venue booking request(s):</p>
+    ${items
+      .map((i, index) => {
+        const dateLabel = formatDateLabel(i.startTime);
+        const startTimeLabel = formatTimeLabel(i.startTime);
+        const endTimeLabel = formatTimeLabel(i.endTime);
+        return `
+          <div style="margin-bottom:16px;">
+            <p style="margin:0 0 8px 0;"><strong>Request ${index + 1}</strong></p>
+            <p style="margin:0;"><strong>Venue:</strong> ${i.venueName}</p>
+            <p style="margin:0;"><strong>Date:</strong> ${dateLabel}</p>
+            <p style="margin:0;"><strong>Time:</strong> ${startTimeLabel} - ${endTimeLabel}</p>
+            <p style="margin:0;"><strong>Event:</strong> ${i.eventName}</p>
+            ${i.clubName ? `<p style="margin:0;"><strong>Requested by:</strong> ${i.clubName}</p>` : ''}
+          </div>
+        `;
+      })
+      .join('')}
+    <p>Please review and take action from the admin dashboard.</p>
+    <p>Regards,<br/>Sleazzy Venue Booking System</p>
   `;
+
+  const primaryItem = items[0];
+  const title = `[General Event] ${primaryItem.venueName} Booking`;
+  const eventTypeLabel = formatEventTypeLabel(primaryItem.eventType);
+  const subject =
+    items.length === 1
+      ? title
+      : `[${eventTypeLabel} Event] ${items.length} Venue Bookings`;
 
   const templateParams = {
     to_email: APPROVAL_NOTIFY_EMAIL,
-    subject: `[Sleazzy] ${items.length} venue booking(s) need approval`,
+    title,
+    subject,
     message,
     message_html: messageHtml,
     booking_count: String(items.length),

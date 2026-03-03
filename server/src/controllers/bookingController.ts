@@ -194,7 +194,19 @@ export const createBooking = async (req: Request, res: Response) => {
   const pendingForEmail = createdBookings.filter((b) => b.status === 'pending');
   if (pendingForEmail.length > 0) {
     const formatTime = (iso: string) => new Date(iso).toLocaleString();
-    const items = pendingForEmail.map((b) => {
+    const itemsForEmail = pendingForEmail.map((b) => {
+      const venue = venues.find((v) => v.id === b.venue_id);
+      return {
+        venueName: venue?.name ?? b.venue_id,
+        eventName: b.event_name,
+        startTime: b.start_time,
+        endTime: b.end_time,
+        clubName: club?.name,
+        eventType: b.event_type,
+      };
+    });
+
+    const itemsForNotification = pendingForEmail.map((b) => {
       const venue = venues.find((v) => v.id === b.venue_id);
       return {
         venueName: venue?.name ?? b.venue_id,
@@ -204,13 +216,14 @@ export const createBooking = async (req: Request, res: Response) => {
         clubName: club?.name,
       };
     });
-    const { sent, error } = await sendApprovalNotification(items);
+
+    const { sent, error } = await sendApprovalNotification(itemsForEmail);
     if (!sent && error) {
       console.error('Approval email failed (bookings still created):', error);
     }
 
     // Also persist as in-app notifications
-    await createBookingPendingNotifications(items);
+    await createBookingPendingNotifications(itemsForNotification);
   }
 
   return res.status(201).json(createdBookings);

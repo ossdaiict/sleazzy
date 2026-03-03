@@ -26,12 +26,12 @@ const AdminRequests: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [venuesData, pendingData] = await Promise.all([
+      const [venuesData, bookingsData] = await Promise.all([
         apiRequest<ApiVenue[]>('/api/venues'),
-        apiRequest<ApiBooking[]>('/api/admin/pending', { auth: true }),
+        apiRequest<ApiBooking[]>('/api/admin/bookings', { auth: true }),
       ]);
       setVenues(venuesData);
-      setRequests(pendingData.map(mapBooking));
+      setRequests(bookingsData.map(mapBooking));
     } catch (err) {
       console.error('Failed to fetch requests:', err);
       setError(getErrorMessage(err, 'Failed to load requests.'));
@@ -53,8 +53,8 @@ const AdminRequests: React.FC = () => {
         body: { status: action, adminNote: '' },
       });
       toastSuccess(`Request ${action === 'approved' ? 'approved' : 'rejected'} successfully`);
-      const pendingData = await apiRequest<ApiBooking[]>('/api/admin/pending', { auth: true });
-      setRequests(pendingData.map(mapBooking));
+      const bookingsData = await apiRequest<ApiBooking[]>('/api/admin/bookings', { auth: true });
+      setRequests(bookingsData.map(mapBooking));
     } catch (err) {
       console.error('Failed to update request:', err);
       toastError(err, `Failed to ${action} request. Please try again.`);

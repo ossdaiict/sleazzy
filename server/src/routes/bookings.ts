@@ -48,7 +48,8 @@ router.get('/public-bookings', async (_req, res) => {
     .from('bookings')
     .select('*, clubs(name), venues(name)')
     .eq('status', 'approved')
-    .gte('end_time', new Date().toISOString()); // Optional: Only show future/ongoing events? Or all? Let's just show approved.
+    .eq('is_public', true)
+    .gte('end_time', new Date().toISOString());
 
   if (error) {
     return res.status(500).json({ error: error.message });
