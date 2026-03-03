@@ -25,9 +25,3 @@ cd ..
 echo "🔄 Restarting PM2 processes..."
 pm2 restart ecosystem.config.js --update-env
 
-# Reload Nginx to ensure latest config
-echo "🔄 Reloading Nginx..."
-sudo nginx -t && sudo systemctl reload nginx
-
-echo "✅ Deployment completed successfully!"
-echo "🌐 Application available at: http://YOUR_VPS_IP/sleazzy"
