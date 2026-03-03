@@ -17,29 +17,69 @@ import { supabase } from './lib/supabase';
 import { apiRequest } from './lib/api';
 import { toastError } from './lib/toast';
 
+const USER_STORAGE_KEY = 'sleazzy_user_profile';
+
+const getCachedUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+
+  const raw = localStorage.getItem(USER_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as User;
+    if (!parsed?.email || !parsed?.name || !parsed?.role) {
+      localStorage.removeItem(USER_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    return null;
+  }
+};
+
+const cacheUser = (nextUser: User | null) => {
+  if (typeof window === 'undefined') return;
+
+  if (!nextUser) {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    return;
+  }
+
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(nextUser));
+};
+
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => getCachedUser());
 
   React.useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
       // Check for existing session on load
       const { data: { session } } = await supabase.auth.getSession();
-      handleSession(session);
-
-      // Listen for changes (sign in, sign out, etc.)
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        handleSession(session);
-      });
-
-      return () => subscription.unsubscribe();
+      await handleSession(session, isMounted);
     };
 
     initAuth();
+
+    // Listen for changes (sign in, sign out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      void handleSession(session, isMounted);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const handleSession = async (session: any) => {
+  const handleSession = async (session: any, isMounted = true) => {
+    if (!isMounted) return;
+
     if (!session) {
       setUser(null);
+      cacheUser(null);
       return;
     }
 
@@ -47,8 +87,11 @@ const App: React.FC = () => {
 
     try {
       const userProfile = await apiRequest<User>('/api/auth/profile', { auth: true });
+      if (!isMounted) return;
       setUser(userProfile);
+      cacheUser(userProfile);
     } catch (error) {
+      if (!isMounted) return;
       console.log("Profile not found, attempting auto-registration for Google User...");
       // Profile likely doesn't exist (First time Google Login)
       try {
@@ -94,22 +137,27 @@ const App: React.FC = () => {
         });
 
         const newProfile = await apiRequest<User>('/api/auth/profile', { auth: true });
+        if (!isMounted) return;
         setUser(newProfile);
+        cacheUser(newProfile);
       } catch (regError) {
         console.error("Auto-registration failed", regError);
         toastError(regError, 'Could not complete setup. Please contact support.');
         setUser(null);
+        cacheUser(null);
       }
     }
   };
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
+    cacheUser(loggedInUser);
   };
 
   const handleLogout = async () => {
     // Clear state first to update UI immediately
     setUser(null);
+    cacheUser(null);
 
     // Clear specific auth tokens if any
     localStorage.removeItem('supabase_access_token');
