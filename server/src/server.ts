@@ -15,7 +15,20 @@ import { supabase } from './supabaseClient';
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
+
+// Catch body-parser errors (e.g., malformed JSON, encoding issues from Caddy proxy)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    console.error('JSON Parse Error:', err.message);
+    return res.status(400).json({ error: 'Invalid JSON payload. Please check the request body.' });
+  }
+  if (err.type === 'entity.parse.failed' || err.type === 'entity.too.large' || err.type === 'request.size.invalid' || err.type === 'encoding.unsupported') {
+    console.error('Body Parser Error:', err.message);
+    return res.status(400).json({ error: 'Failed to process request body', details: err.message, type: err.type });
+  }
+  next();
+});
 
 app.use((req, _res, next) => {
   req.app.locals.supabase = supabase;
