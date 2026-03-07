@@ -48,6 +48,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     expectedAttendees: '',
     clubName: '',
     date: '',
+    endDate: '',
     startTime: '',
     endTime: '',
     venueIds: [] as string[]
@@ -56,6 +57,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [endDatePickerOpen, setEndDatePickerOpen] = useState(false);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(undefined);
   const [busyVenueIds, setBusyVenueIds] = useState<string[]>([]);
   const [metaError, setMetaError] = useState<string | null>(null);
 
@@ -103,6 +106,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         eventType: prefill.eventType || 'closed_club',
         expectedAttendees: prefill.expectedAttendees || '',
         date: prefill.date || '',
+        endDate: prefill.date || '',
         startTime: prefill.startTime || '',
         endTime: prefill.endTime || '',
         clubName: prefill.clubName || prev.clubName
@@ -112,6 +116,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         const d = new Date(prefill.date);
         if (!isNaN(d.getTime())) {
           setSelectedDate(d);
+          setSelectedEndDate(d);
         }
       }
     }
@@ -127,15 +132,33 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
       handleChange('date', dateString);
       setDatePickerOpen(false);
+
+      // Auto-set endDate if it's empty or earlier than startDate
+      if (!formData.endDate || new Date(formData.endDate) < selectedDate) {
+        handleChange('endDate', dateString);
+        setSelectedEndDate(selectedDate);
+      }
     }
   }, [selectedDate]);
 
+  // Handle end date selection from Calendar
+  useEffect(() => {
+    if (selectedEndDate) {
+      const year = selectedEndDate.getFullYear();
+      const month = String(selectedEndDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedEndDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+
+      handleChange('endDate', dateString);
+      setEndDatePickerOpen(false);
+    }
+  }, [selectedEndDate]);
+
   // Parse date string to Date object for Calendar
   useEffect(() => {
-    if (formData.date) {
-      setSelectedDate(new Date(formData.date));
-    }
-  }, [formData.date]);
+    if (formData.date) setSelectedDate(new Date(formData.date));
+    if (formData.endDate) setSelectedEndDate(new Date(formData.endDate));
+  }, [formData.date, formData.endDate]);
 
   const getClubGroup = (name: string): ClubGroupType | undefined => {
     if (name === currentUser.name && currentUser.group) {
@@ -211,43 +234,67 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
   // Operating Hours Logic
   useEffect(() => {
-    if (!formData.date || !formData.startTime || !formData.endTime) {
+    const endDates = formData.endDate || formData.date;
+    if (!formData.date || !endDates || !formData.startTime || !formData.endTime) {
       setWarnings(prev => ({ ...prev, hours: '' }));
       return;
     }
 
-    const dateObj = new Date(formData.date);
-    const day = dateObj.getDay();
-    const isWeekend = day === 0 || day === 6;
-
-    const start = formData.startTime;
-    const end = formData.endTime;
+    const startDate = new Date(formData.date);
+    const endDate = new Date(endDates);
 
     let errorMsg = '';
 
-    if (end <= start) {
-      errorMsg = "End time must be after start time.";
-    } else if (isWeekend && start < "08:00") {
-      errorMsg = "On weekends, bookings are allowed from 8:00 AM to 12:00 AM.";
-    } else if (!isWeekend && start < "16:00") {
-      errorMsg = "On weekdays, bookings are only allowed from 4:00 PM to 12:00 AM.";
+    if (endDate < startDate) {
+      errorMsg = "End date cannot be before start date.";
+    } else if (formData.date === endDates && formData.endTime <= formData.startTime) {
+      errorMsg = "End time must be after start time on the same day.";
+    } else {
+      // Validate restricted hours day-by-day (IST)
+      const currentDate = new Date(startDate);
+
+      while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay();
+        const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday
+
+        // Only weekdays have restricted timings (8:00 AM to 6:00 PM IST)
+        if (isWeekday) {
+          const isFirstDay = currentDate.getTime() === startDate.getTime();
+          const isLastDay = currentDate.getTime() === endDate.getTime();
+
+          // Determine the active time block for THIS specific day
+          const activeStart = isFirstDay ? formData.startTime : "00:00";
+          const activeEnd = isLastDay ? formData.endTime : "24:00";
+
+          // Restricted block is 08:00 to 18:00 (8:00 AM to 6:00 PM IST)
+          // Overlap condition: activeStart < RestrictedEnd AND activeEnd > RestrictedStart
+          if (activeStart < "18:00" && activeEnd > "08:00") {
+            errorMsg = "On weekdays, bookings are not allowed between 8:00 AM and 6:00 PM (IST). Your selection overlaps with these restricted academic hours.";
+            break;
+          }
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
     }
 
     setWarnings(prev => ({ ...prev, hours: errorMsg }));
-  }, [formData.date, formData.startTime, formData.endTime]);
+  }, [formData.date, formData.endDate, formData.startTime, formData.endTime]);
 
   // Conflict Logic
   useEffect(() => {
-    if (!formData.date || !formData.startTime || !formData.endTime || !formData.clubName) {
+    const endDates = formData.endDate || formData.date;
+    if (!formData.date || !endDates || !formData.startTime || !formData.endTime || !formData.clubName) {
       return;
     }
 
     const checkConflicts = async () => {
       try {
-        if (!formData.date || !formData.startTime || !formData.endTime || venues.length === 0) return;
+        if (venues.length === 0) return;
 
         const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
-        const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+        const endDateTime = new Date(`${endDates}T${formData.endTime}:00`);
 
         const query = new URLSearchParams({
           startTime: startDateTime.toISOString(),
@@ -274,7 +321,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     };
 
     checkConflicts();
-  }, [formData.date, formData.startTime, formData.endTime, formData.clubName, venues]);
+  }, [formData.date, formData.endDate, formData.startTime, formData.endTime, formData.clubName, venues]);
 
   // Co-curricular limit check
   useEffect(() => {
@@ -345,8 +392,9 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
       const selectedClub = clubs.find(c => c.name === formData.clubName);
       if (!selectedClub) throw new Error("Invalid club selected");
 
+      const endDates = formData.endDate || formData.date;
       const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
-      const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+      const endDateTime = new Date(`${endDates}T${formData.endTime}:00`);
 
       if (formData.venueIds.length === 0) {
         toastError('Please select at least one venue.');
@@ -374,11 +422,13 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         expectedAttendees: '',
         clubName: currentUser.role === 'club' ? currentUser.name : '',
         date: '',
+        endDate: '',
         startTime: '',
         endTime: '',
         venueIds: []
       });
       setSelectedDate(undefined);
+      setSelectedEndDate(undefined);
       setWarnings({
         timeline: '',
         conflict: '',
@@ -496,7 +546,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       <div className="h-2 w-2 rounded-full bg-warning mt-2 shrink-0" />
                       <div>
                         <span className="font-semibold block text-textPrimary text-sm mb-1">Weekday Hours</span>
-                        <p className="text-xs text-textSecondary leading-relaxed">4:00 PM – 12:00 AM</p>
+                        <p className="text-xs text-textSecondary leading-relaxed">6:00 PM – 8:00 AM</p>
                       </div>
                     </div>
                   </div>
@@ -531,9 +581,16 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                         <CalendarIcon size={20} />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-success uppercase tracking-wider">Event Date</p>
+                        <p className="text-[10px] font-bold text-success uppercase tracking-wider">Event Date(s)</p>
                         <p className="text-sm font-bold text-textPrimary">
-                          {formData.date ? new Date(formData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', weekday: 'short' }) : 'Not selected'}
+                          {formData.date ? (
+                            <span>
+                              {new Date(formData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', weekday: 'short' })}
+                              {formData.endDate && formData.endDate !== formData.date && (
+                                <> – {new Date(formData.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', weekday: 'short' })}</>
+                              )}
+                            </span>
+                          ) : 'Not selected'}
                         </p>
                       </div>
                     </div>
@@ -646,8 +703,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="sm:col-span-2 space-y-2.5">
-                    <Label className="text-textSecondary font-semibold text-sm">Select Date *</Label>
+                  <div className="space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">From Date *</Label>
                     <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -685,12 +742,56 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                         />
                       </PopoverContent>
                     </Popover>
-                    {warnings.timeline && (
-                      <p className="text-xs text-error font-semibold flex items-center gap-1.5 mt-2 bg-error/5 p-2.5 rounded-lg border border-error/20">
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">To Date *</Label>
+                    <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full h-10 justify-start text-left font-medium border-borderSoft hover:bg-hoverSoft/50 transition-all bg-card text-textPrimary rounded-md shadow-sm",
+                            !formData.endDate && "text-textMuted"
+                          )}
+                          onClick={() => setEndDatePickerOpen(true)}
+                        >
+                          <CalendarIcon className="mr-2 h-5 w-5 text-brand opacity-70" />
+                          {formData.endDate ? (
+                            <span className="font-semibold">
+                              {new Date(formData.endDate).toLocaleDateString('en-US', {
+                                weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'
+                              })}
+                            </span>
+                          ) : (
+                            <span>Same as From Date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedEndDate || selectedDate}
+                          onSelect={setSelectedEndDate}
+                          disabled={(date) => {
+                            // Can only select End Date >= Start Date
+                            if (!selectedDate) return false;
+                            const start = new Date(selectedDate);
+                            start.setHours(0, 0, 0, 0);
+                            return date < start;
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {(warnings.timeline) && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-error font-semibold flex items-center gap-1.5 bg-error/5 p-2.5 rounded-lg border border-error/20">
                         <AlertTriangle size={14} className="shrink-0" /> {warnings.timeline}
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2.5">
                     <Label className="text-textSecondary font-semibold text-sm">Start Time *</Label>
