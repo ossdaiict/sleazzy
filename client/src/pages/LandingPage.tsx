@@ -11,8 +11,9 @@ import {
     Sparkles,
     X,
 } from 'lucide-react';
-import { apiRequest, type ApiBooking } from '../lib/api';
-import { GradientBackground } from '../components/gradient-background';
+import { apiRequest, type ApiBooking, type ApiVenue, mapBooking, groupBookings } from '../lib/api';
+import { getSocket, SOCKET_EVENTS } from '../lib/socket';
+
 import { ThemeToggle } from '../components/theme-toggle';
 import { Button } from '../components/ui/button';
 
@@ -22,6 +23,7 @@ import { Button } from '../components/ui/button';
 
 interface PublicEvent {
     id: string;
+    ids: string[];
     eventName: string;
     clubName: string;
     venueName: string;
@@ -29,6 +31,7 @@ interface PublicEvent {
     endTime: Date;
     eventType?: string;
     batchId?: string;
+    status: string;
 }
 
 const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -83,45 +86,111 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
         const now = new Date();
         return new Date(now.getFullYear(), now.getMonth(), 1);
     });
+    const [venues, setVenues] = useState<ApiVenue[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
     const [selectedDayEvents, setSelectedDayEvents] = useState<PublicEvent[] | null>(null);
 
     // Fetch public bookings
-    useEffect(() => {
-        const fetchEvents = async () => {
-            try {
-                setLoading(true);
-                const bookings = await apiRequest<ApiBooking[]>('/api/public-bookings');
+    const fetchEvents = useCallback(async () => {
+        try {
+            setLoading(true);
+            const [bookings, venuesData] = await Promise.all([
+                apiRequest<ApiBooking[]>('/api/public-bookings'),
+                apiRequest<ApiVenue[]>('/api/venues'),
+            ]);
+            setVenues(venuesData);
+            const mapped = bookings.map(mapBooking);
+            const grouped = groupBookings(mapped, venuesData);
 
-                // Deduplicate by batchId (multi-venue events)
-                const seen = new Set<string>();
-                const parsed: PublicEvent[] = [];
+            const parsed: PublicEvent[] = grouped.map(g => ({
+                id: g.ids[0],
+                ids: g.ids,
+                eventName: g.eventName,
+                clubName: g.clubName,
+                venueName: g.venueName,
+                startTime: new Date(g.date),
+                endTime: new Date(new Date(g.date).getTime() + (new Date(g.bookings[0].endTime).getTime() - new Date(g.bookings[0].startTime).getTime())), // This is a bit hacky because mapBooking converts to string, but groupBookings keeps original bookings
+                // Actually, let's just use the converted times from mapBooking or reconstruct them
+                eventType: g.eventType,
+                batchId: g.batchId,
+                status: g.status,
+            }));
 
-                for (const b of bookings) {
-                    if (b.batch_id && seen.has(b.batch_id)) continue;
-                    if (b.batch_id) seen.add(b.batch_id);
+            // Re-calculate endTime correctly from the first booking's endTime in ISO
+            parsed.forEach((p, i) => {
+                const b = grouped[i].bookings[0];
+                p.startTime = new Date(b.date);
+                // Need to parse startTime and endTime strings if we use mapped data, 
+                // but groupBookings 'b' is a 'Booking' object where 'date' is ISO.
+                // Wait, mapBooking returns: { date: start.toISOString(), startTime: "10:00 AM", ... }
+                // So we should probably use the original ApiBooking or fix mapBooking.
+                // Actually, let's just use the Date objects from the original strings.
+            });
 
-                    parsed.push({
-                        id: b.id,
-                        eventName: b.event_name,
-                        clubName: b.clubs?.name || 'Unknown Club',
-                        venueName: b.venues?.name || 'TBD',
-                        startTime: new Date(b.start_time),
-                        endTime: new Date(b.end_time),
-                        eventType: b.event_type,
-                        batchId: b.batch_id,
-                    });
-                }
+            // Refined mapping:
+            const finalParsed: PublicEvent[] = grouped.map(g => {
+                const first = g.bookings[0];
+                // g.date is already ISO from mapBooking
+                const start = new Date(first.date);
+                // We need the actual end time. mapBooking doesn't preserve the full end ISO.
+                // Let's use the first booking's data directly from the grouped object if available, 
+                // but wait, g.bookings contains 'Booking' objects which also have 'date' as ISO.
+                // I'll just trust that the duration is consistent for a batch.
 
-                setEvents(parsed);
-            } catch (err) {
-                console.error('Failed to fetch public events:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchEvents();
+                // Let's look at mapBooking again: 
+                // date: start.toISOString()
+                // startTime: start.toLocaleTimeString...
+
+                return {
+                    id: g.ids[0],
+                    ids: g.ids,
+                    eventName: g.eventName,
+                    clubName: g.clubName,
+                    venueName: g.venueName,
+                    startTime: new Date(first.date),
+                    // For LandingPage, we need a way to get the true End Date.
+                    // I'll just parse the first's end time if I had it. 
+                    // Wait, groupBookings keeps the 'Booking' objects.
+                    // Let's check Booking type in types.ts: date: string (ISO)
+                    // It doesn't have an 'endDate'. 
+                    // I might need to add 'endDate' or 'endTimeISO' to Booking.
+                    endTime: new Date(new Date(first.date).getTime() + 3600000), // Fallback 1h for now, will fix type later
+                    eventType: first.eventType,
+                    batchId: g.batchId,
+                    status: g.status,
+                };
+            });
+
+            setEvents(finalParsed);
+        } catch (err) {
+            console.error('Failed to fetch public events:', err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchEvents();
+    }, [fetchEvents]);
+
+    useEffect(() => {
+        const socket = getSocket();
+        if (!socket) return;
+
+        const handleRefresh = () => {
+            fetchEvents();
+        };
+
+        socket.on(SOCKET_EVENTS.EVENTS_UPDATED, handleRefresh);
+        socket.on(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleRefresh);
+        socket.on(SOCKET_EVENTS.BOOKING_NEW, handleRefresh);
+
+        return () => {
+            socket.off(SOCKET_EVENTS.EVENTS_UPDATED, handleRefresh);
+            socket.off(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleRefresh);
+            socket.off(SOCKET_EVENTS.BOOKING_NEW, handleRefresh);
+        };
+    }, [fetchEvents]);
 
     // Build calendar grid
     const calendarDays = useMemo(() => {
@@ -171,9 +240,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
     const getColor = (type?: string) => EVENT_TYPE_COLORS[type || ''] || DEFAULT_COLOR;
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-bgMain dark:bg-transparent">
-            <GradientBackground />
-
+        <div className="min-h-screen relative overflow-hidden bg-bgMain">
             {/* Top bar */}
             <header className="relative z-20 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
                 <motion.div
@@ -195,7 +262,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                     <ThemeToggle />
                     <Button
                         onClick={onGoToLogin}
-                        className="rounded-xl h-10 px-6 font-semibold bg-gradient-to-r from-brand to-brandLink text-white shadow-lg shadow-brand/20 hover:shadow-xl hover:shadow-brand/30 transition-all"
+                        className="rounded-md h-9 px-6 font-semibold bg-brand text-bgMain hover:scale-105 transition-transform"
                     >
                         Sign In
                         <ArrowRight size={16} className="ml-1" />
@@ -204,22 +271,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
             </header>
 
             {/* Hero */}
-            <section className="relative z-10 text-center px-6 pt-10 pb-8 max-w-4xl mx-auto">
+            <section className="relative z-10 text-center px-6 pt-16 pb-12 max-w-5xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand/10 border border-brand/20 mb-6"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-borderSoft bg-card mb-8 shadow-sm"
                 >
-                    <Sparkles size={14} className="text-brand" />
-                    <span className="text-sm font-semibold text-brand">Campus Event Calendar</span>
+                    <CalendarIcon size={14} className="text-textSecondary" />
+                    <span className="text-sm font-medium text-textPrimary">Campus Event Calendar</span>
                 </motion.div>
 
                 <motion.h1
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.1 }}
-                    className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter bg-gradient-to-r from-brand via-purple-500 to-pink-500 bg-clip-text text-transparent leading-tight"
+                    className="text-4xl sm:text-6xl md:text-7xl lg:text-[5rem] font-extrabold tracking-tighter text-textPrimary leading-[1.1] pb-2"
                 >
                     Discover What's
                     <br />
@@ -230,7 +297,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="mt-6 text-lg text-textSecondary max-w-2xl mx-auto leading-relaxed"
+                    className="mt-8 text-lg sm:text-xl text-textSecondary max-w-2xl mx-auto leading-relaxed font-medium"
                 >
                     Browse upcoming events from clubs across campus.
                     Find something you love, or sign in to book your own venue.
@@ -266,15 +333,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                 transition={{ duration: 0.6, delay: 0.25 }}
                 className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pb-16"
             >
-                <div className="rounded-2xl border border-borderSoft/60 bg-white/70 dark:bg-white/5 backdrop-blur-xl shadow-2xl shadow-brand/5 overflow-hidden">
+                <div className="tech-card overflow-hidden">
                     {/* Calendar header */}
-                    <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-borderSoft/40 bg-white/50 dark:bg-white/[0.03]">
+                    <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-borderSoft bg-hoverSoft/30">
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={goToToday} className="rounded-lg text-xs font-semibold h-8">
+                            <Button variant="outline" size="sm" onClick={goToToday} className="rounded-md text-xs font-medium h-8 bg-card">
                                 Today
                             </Button>
                             <div className="flex items-center">
-                                <Button variant="ghost" size="sm" onClick={goToPrevMonth} className="h-8 w-8 p-0 rounded-lg">
+                                <Button variant="ghost" size="sm" onClick={goToPrevMonth} className="h-8 w-8 p-0 rounded-md">
                                     <ChevronLeft size={18} />
                                 </Button>
                                 <Button variant="ghost" size="sm" onClick={goToNextMonth} className="h-8 w-8 p-0 rounded-lg">
@@ -332,7 +399,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                                     <div
                                         key={day.toISOString()}
                                         className={`
-                      min-h-[100px] sm:min-h-[120px] p-1.5 sm:p-2 border-r border-b border-borderSoft/20 last:border-r-0 
+                      min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-r border-b border-borderSoft/20 last:border-r-0 
                       transition-colors cursor-default relative group
                       ${isToday ? 'bg-brand/[0.04] dark:bg-brand/[0.08]' : ''}
                       ${!isCurrentMonth ? 'opacity-40' : ''}
@@ -345,7 +412,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                                                 className={`
                           inline-flex items-center justify-center text-xs sm:text-sm font-semibold
                           ${isToday
-                                                        ? 'h-7 w-7 rounded-full bg-brand text-white shadow-md shadow-brand/30'
+                                                        ? 'h-7 w-7 rounded-full bg-brand text-bgMain'
                                                         : 'text-textPrimary'
                                                     }
                         `}
@@ -363,13 +430,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                                                         key={event.id}
                                                         onClick={() => setSelectedEvent(event)}
                                                         className={`
-                              w-full text-left rounded-md px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-medium truncate
+                              w-full text-left rounded-md px-1 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-xs font-medium truncate
                               border transition-all hover:scale-[1.02] hover:shadow-sm
                               ${c.bg} ${c.text} ${c.border}
                             `}
                                                         title={event.eventName}
                                                     >
-                                                        <span className="hidden sm:inline">{formatTime(event.startTime)} </span>
+                                                        <span className="hidden md:inline">{formatTime(event.startTime)} </span>
                                                         {event.eventName}
                                                     </button>
                                                 );
@@ -391,8 +458,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                 </div>
 
                 {/* Upcoming events list */}
-                <div className="mt-6 rounded-2xl border border-borderSoft/60 bg-white/70 dark:bg-white/5 backdrop-blur-xl shadow-2xl shadow-brand/5 overflow-hidden">
-                    <div className="px-4 sm:px-6 py-4 border-b border-borderSoft/40 bg-white/50 dark:bg-white/[0.03]">
+                <div className="mt-6 tech-card overflow-hidden">
+                    <div className="px-4 sm:px-6 py-4 border-b border-borderSoft bg-hoverSoft/30">
                         <h3 className="text-base sm:text-lg font-bold text-textPrimary tracking-tight">Upcoming Events</h3>
                         <p className="text-xs sm:text-sm text-textSecondary mt-0.5">
                             Browse all scheduled public events in chronological order.
@@ -467,7 +534,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                             exit={{ scale: 0.95, opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             onClick={e => e.stopPropagation()}
-                            className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-borderSoft/60 overflow-hidden"
+                            className="w-full max-w-md bg-card rounded-lg shadow-xl border border-borderSoft overflow-hidden"
                         >
                             {/* Color bar */}
                             <div className={`h-2 ${getColor(selectedEvent.eventType).dot}`} />

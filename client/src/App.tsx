@@ -17,6 +17,7 @@ import { ClipboardList, Layers } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { apiRequest } from './lib/api';
 import { toastError } from './lib/toast';
+import { getSocket, SOCKET_EVENTS } from './lib/socket';
 
 const USER_STORAGE_KEY = 'sleazzy_user_profile';
 
@@ -87,72 +88,37 @@ const App: React.FC = () => {
     localStorage.setItem('supabase_access_token', session.access_token);
 
     try {
+      // /api/auth/profile auto-creates a profile + club row if missing (handles first-time OAuth logins)
       const userProfile = await apiRequest<User>('/api/auth/profile', { auth: true });
       if (!isMounted) return;
       setUser(userProfile);
       cacheUser(userProfile);
     } catch (error) {
       if (!isMounted) return;
-      console.log("Profile not found, attempting auto-registration for Google User...");
-      // Profile likely doesn't exist (First time Google Login)
-      try {
-        const { user } = session;
-        const name = user.user_metadata.full_name || user.email?.split('@')[0] || 'New Club';
-
-        // Register as a club by default
-        // Note: register endpoint might fail if it tries to create auth user again, 
-        // but our modified register logic in auth.ts uses upsert for profile which is good.
-        // However, auth.ts tries to create supabase auth user. We should check that.
-        // Actually, auth.ts does `supabase.auth.admin.createUser`. This will fail if user exists.
-        // We might need a separate endpoint for "create profile only" OR update register to handle existing auth users.
-        // Let's assume for now we might need to fix backend. But I'll try calling register.
-        // Wait, calling register with a password will try to create a new user. 
-        // Strategy: We need the backend to support "ensure profile exists". 
-        // Let's rely on the fact that if I call register, strict validation might fail or duplicate user error.
-
-        // ALTERNATIVE: Use a new specific endpoint or modifying profile fetching to auto-create?
-        // Let's update `handleSession` to just set user based on session if profile fails? 
-        // No, we need the `role`. 
-        // Let's try to hit a new endpoint `api/auth/google-callback`? 
-        // Or simpler: Update `auth.ts` to have a `create-profile` route?
-        // Or just call `register` and catch the "user already exists" error but hope it creates the profile?
-        // The current `register` implementation in `auth.ts` does:
-        // 1. Check if user exists (by email/admin check).
-        // 2. Create user (throws if exists).
-        // 3. Upsert profile. 
-        // If step 2 throws, step 3 is skipped.
-        // So we need to fix backend `auth.ts` to allow "registering" an existing user (just creating profile).
-
-        // For this step (App.tsx), I will leave the auto-register intent but I know it might fail. 
-        // I will PROCEED to fix `auth.ts` in the NEXT step.
-
-        await apiRequest('/api/auth/register', {
-          method: 'POST',
-          body: {
-            userId: user.id,
-            email: user.email,
-            password: 'google-oauth-placeholder-password-123', // Dummy, won't override actual auth
-            clubName: name,
-            groupCategory: 'A'
-          }
-        });
-
-        const newProfile = await apiRequest<User>('/api/auth/profile', { auth: true });
-        if (!isMounted) return;
-        setUser(newProfile);
-        cacheUser(newProfile);
-      } catch (regError) {
-        console.error("Auto-registration failed", regError);
-        toastError(regError, 'Could not complete setup. Please contact support.');
-        setUser(null);
-        cacheUser(null);
-      }
+      console.error('Failed to load user profile:', error);
+      toastError(error, 'Failed to load your profile. Please try signing in again.');
+      setUser(null);
+      cacheUser(null);
     }
   };
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
     cacheUser(loggedInUser);
+
+    // Join the appropriate socket room after login
+    const socket = getSocket();
+    if (loggedInUser.role === 'admin') {
+      socket.emit(SOCKET_EVENTS.JOIN_ADMIN);
+    } else if (loggedInUser.email) {
+      // For clubs, the server uses club_id for rooms.
+      // We'll fetch the club data to get the id, but for now we join with email as a fallback.
+      // Actual club-room join with ID happens in ClubDashboard once events load.
+      apiRequest<{ id: string }[]>('/api/clubs').then(clubs => {
+        const match = clubs.find((c: any) => c.email === loggedInUser.email);
+        if (match?.id) socket.emit(SOCKET_EVENTS.JOIN_CLUB, match.id);
+      }).catch(() => { });
+    }
   };
 
   const handleLogout = async () => {
@@ -172,6 +138,22 @@ const App: React.FC = () => {
       toastError(err, 'Logout failed. Please try again.');
     }
   };
+
+  // Global socket room joining
+  React.useEffect(() => {
+    if (!user) return;
+
+    const socket = getSocket();
+    if (user.role === 'admin') {
+      socket.emit(SOCKET_EVENTS.JOIN_ADMIN);
+    } else if (user.email) {
+      // Fetch club info to join the correct room
+      apiRequest<{ id: string }[]>('/api/clubs').then(clubs => {
+        const match = clubs.find((c: any) => c.email === user.email);
+        if (match?.id) socket.emit(SOCKET_EVENTS.JOIN_CLUB, match.id);
+      }).catch(() => { });
+    }
+  }, [user]);
 
   if (!user) {
     return (

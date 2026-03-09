@@ -96,13 +96,65 @@ router.get('/profile', async (req, res) => {
         }
 
         // 1. Fetch Profile
-        const { data: profile, error: profileError } = await supabase
+        let { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', userId)
             .single();
 
-        if (profileError) {
+        // If profile doesn't exist (e.g. first Google OAuth login), auto-create it
+        if (profileError?.code === 'PGRST116' || !profile) {
+            // Get user details from Supabase auth
+            const { data: { user: authUser }, error: authUserError } = await supabase.auth.admin.getUserById(userId);
+            if (authUserError || !authUser) {
+                return res.status(404).json({ error: 'User not found in auth' });
+            }
+
+            const email = authUser.email || '';
+            const fullName = authUser.user_metadata?.full_name ||
+                authUser.user_metadata?.name ||
+                email.split('@')[0] ||
+                'New Club';
+
+            // Upsert the profile
+            const { error: upsertError } = await supabase
+                .from('profiles')
+                .upsert({ id: userId, email, role: 'club', full_name: fullName });
+
+            if (upsertError) {
+                console.error('Auto-profile creation failed:', upsertError);
+                return res.status(500).json({ error: 'Failed to create profile automatically' });
+            }
+
+            // Auto-create club entry if not already there
+            const { data: existingClub } = await supabase
+                .from('clubs')
+                .select('id')
+                .eq('email', email)
+                .single();
+
+            if (!existingClub) {
+                const { error: clubError } = await supabase
+                    .from('clubs')
+                    .insert({ name: fullName, email, group_category: 'C' });
+                if (clubError) {
+                    console.error('Auto-club creation failed:', clubError);
+                }
+            }
+
+            // Re-fetch the profile
+            const { data: newProfile, error: refetchError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (refetchError || !newProfile) {
+                return res.status(500).json({ error: 'Profile created but could not be fetched' });
+            }
+
+            profile = newProfile;
+        } else if (profileError) {
             console.error('Error fetching profile:', profileError);
             return res.status(500).json({ error: 'Failed to fetch profile' });
         }
@@ -117,14 +169,13 @@ router.get('/profile', async (req, res) => {
                 .eq('email', profile.email)
                 .single();
 
-            if (clubError && clubError.code !== 'PGRST116') { // PGRST116 is "Row not found" - might be acceptable if not linked
+            if (clubError && clubError.code !== 'PGRST116') {
                 console.error('Error fetching club:', clubError);
             }
             clubData = club;
         }
 
         // 3. Construct Response
-        // Match the shape expected by frontend Login.tsx onLogin
         const responseData = {
             id: profile.id,
             email: profile.email,

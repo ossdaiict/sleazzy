@@ -9,7 +9,7 @@ const PolicyPage: React.FC = () => {
   const getClubsByGroup = (group: 'A' | 'B' | 'C') => CLUBS.filter(c => c.group === group);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
@@ -31,22 +31,22 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <AccordionItem value="item-0" className="border border-borderSoft rounded-xl bg-card shadow-lg shadow-black/5 overflow-hidden">
-          <AccordionTrigger className="px-5 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <Clock className="text-primary" size={20} />
-              <span className="font-semibold text-foreground">Timeline & Booking Windows</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-0">
-            <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-              <li><strong className="text-foreground">Co-curricular Events:</strong> Must be booked at least <span className="text-error font-bold">30 days</span> in advance.</li>
-              <li><strong className="text-foreground">Open-for-All Events:</strong> Must be booked at least <span className="text-error font-bold">20 days</span> in advance.</li>
-              <li><strong className="text-foreground">Closed Club Events:</strong> Can be booked up to <span className="text-error font-bold">1 day</span> before the event date.</li>
-              <li>Requests made outside these windows will be automatically flagged for rejection unless a special waiver is granted by the Faculty Convener.</li>
-            </ul>
-          </AccordionContent>
-        </AccordionItem>
+          <AccordionItem value="item-0" className="border border-borderSoft rounded-lg bg-card shadow-sm overflow-hidden">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Clock className="text-primary" size={20} />
+                <span className="font-semibold text-foreground">Timeline & Booking Windows</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5 pt-0">
+              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
+                <li><strong className="text-foreground">Co-curricular Events:</strong> Must be booked at least <span className="text-error font-bold">30 days</span> in advance.</li>
+                <li><strong className="text-foreground">Open-for-All Events:</strong> Must be booked at least <span className="text-error font-bold">20 days</span> in advance.</li>
+                <li><strong className="text-foreground">Closed Club Events:</strong> Can be booked up to <span className="text-error font-bold">1 day</span> before the event date.</li>
+                <li>Requests made outside these windows will be automatically flagged for rejection unless a special waiver is granted by the Faculty Convener.</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
         </motion.div>
 
         <motion.div
@@ -54,22 +54,22 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <AccordionItem value="item-1" className="border border-borderSoft rounded-xl bg-card shadow-lg shadow-black/5 overflow-hidden">
-          <AccordionTrigger className="px-5 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <ShieldAlert className="text-primary" size={20} />
-              <span className="font-semibold text-foreground">Parallel Booking Policy</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-0">
-            <p className="mb-3 text-sm text-muted-foreground">To ensure maximum student participation and avoid conflict of interests, the following parallel booking rules apply:</p>
-            <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-              <li>Two clubs from the <strong className="text-foreground">same group</strong> (e.g., Group A and Group A) cannot hold major events simultaneously.</li>
-              <li>Parallel events are <strong className="text-foreground">permitted</strong> if the clubs belong to <strong className="text-foreground">different groups</strong> (e.g., Group A and Group C).</li>
-              <li>Exceptions are made for Closed Club events (internal meetings) which do not require mass student participation.</li>
-            </ul>
-          </AccordionContent>
-        </AccordionItem>
+          <AccordionItem value="item-1" className="border border-borderSoft rounded-lg bg-card shadow-sm overflow-hidden">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="text-primary" size={20} />
+                <span className="font-semibold text-foreground">Parallel Booking Policy</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5 pt-0">
+              <p className="mb-3 text-sm text-muted-foreground">To ensure maximum student participation and avoid conflict of interests, the following parallel booking rules apply:</p>
+              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
+                <li>Two clubs from the <strong className="text-foreground">same group</strong> (e.g., Group A and Group A) cannot hold major events simultaneously.</li>
+                <li>Parallel events are <strong className="text-foreground">permitted</strong> if the clubs belong to <strong className="text-foreground">different groups</strong> (e.g., Group A and Group C).</li>
+                <li>Exceptions are made for Closed Club events (internal meetings) which do not require mass student participation.</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
         </motion.div>
 
         <motion.div
@@ -77,36 +77,36 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <AccordionItem value="item-2" className="border border-borderSoft rounded-xl bg-card shadow-lg shadow-black/5 overflow-hidden">
-          <AccordionTrigger className="px-5 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <FileText className="text-primary" size={20} />
-              <span className="font-semibold text-foreground">Venue Categories & Approval</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              <Card className="border border-border">
-                <CardHeader>
-                  <CardTitle className="text-base">Category A (Auto-Approval)</CardTitle>
-                  <CardDescription className="text-xs">CEP Rooms, OAT, Ground, Cafeteria</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">Bookings are automatically confirmed if the slot is vacant and timeline rules are met. No manual intervention required.</p>
-                </CardContent>
-              </Card>
-              <Card className="border border-border">
-                <CardHeader>
-                  <CardTitle className="text-base">Category B (Restricted)</CardTitle>
-                  <CardDescription className="text-xs">Lecture Theatres (LT), CEP 110, CEP 102</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">Always requires manual approval from the Sleazzy Convener and Faculty Mentor. Pending status applies until approved.</p>
-                </CardContent>
-              </Card>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+          <AccordionItem value="item-2" className="border border-borderSoft rounded-lg bg-card shadow-sm overflow-hidden">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <FileText className="text-primary" size={20} />
+                <span className="font-semibold text-foreground">Venue Categories & Approval</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5 pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <Card className="border border-border">
+                  <CardHeader>
+                    <CardTitle className="text-base">Category A (Auto-Approval)</CardTitle>
+                    <CardDescription className="text-xs">CEP Rooms, OAT, Ground, Cafeteria</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Bookings are automatically confirmed if the slot is vacant and timeline rules are met. No manual intervention required.</p>
+                  </CardContent>
+                </Card>
+                <Card className="border border-border">
+                  <CardHeader>
+                    <CardTitle className="text-base">Category B (Restricted)</CardTitle>
+                    <CardDescription className="text-xs">Lecture Theatres (LT), CEP 110, CEP 102</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Always requires manual approval from the Sleazzy Convener and Faculty Mentor. Pending status applies until approved.</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         </motion.div>
 
         <motion.div
@@ -114,36 +114,36 @@ const PolicyPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
         >
-          <AccordionItem value="item-3" className="border border-borderSoft rounded-xl bg-card shadow-lg shadow-black/5 overflow-hidden">
-          <AccordionTrigger className="px-5 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <Users className="text-primary" size={20} />
-              <span className="font-semibold text-foreground">Club Groups Appendix</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-2">
-              <div>
-                <h4 className="font-bold text-brand mb-2 border-b border-brand/30 pb-1">Group A (Tech)</h4>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {getClubsByGroup('A').map(c => <li key={c.name}>{c.name}</li>)}
-                </ul>
+          <AccordionItem value="item-3" className="border border-borderSoft rounded-lg bg-card shadow-sm overflow-hidden">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Users className="text-primary" size={20} />
+                <span className="font-semibold text-foreground">Club Groups Appendix</span>
               </div>
-              <div>
-                <h4 className="font-bold text-brand-link mb-2 border-b border-brand-link/30 pb-1">Group B (Cultural)</h4>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {getClubsByGroup('B').map(c => <li key={c.name}>{c.name}</li>)}
-                </ul>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5 pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-2">
+                <div>
+                  <h4 className="font-bold text-brand mb-2 border-b border-brand/30 pb-1">Group A (Tech)</h4>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    {getClubsByGroup('A').map(c => <li key={c.name}>{c.name}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-bold text-brand-link mb-2 border-b border-brand-link/30 pb-1">Group B (Cultural)</h4>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    {getClubsByGroup('B').map(c => <li key={c.name}>{c.name}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-bold text-brand mb-2 border-b border-brand/30 pb-1">Group C (Sports)</h4>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    {getClubsByGroup('C').map(c => <li key={c.name}>{c.name}</li>)}
+                  </ul>
+                </div>
               </div>
-              <div>
-                <h4 className="font-bold text-brand mb-2 border-b border-brand/30 pb-1">Group C (Sports)</h4>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {getClubsByGroup('C').map(c => <li key={c.name}>{c.name}</li>)}
-                </ul>
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+            </AccordionContent>
+          </AccordionItem>
         </motion.div>
       </Accordion>
     </motion.div>

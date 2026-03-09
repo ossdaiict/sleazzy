@@ -223,8 +223,11 @@ export const mapBooking = (booking: ApiBooking) => {
     venueName: booking.venues?.name || booking.venue_id,
     clubName: booking.clubs?.name || booking.club_id,
     date: start.toISOString(),
+    endDate: end.toISOString(),
     startTime: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     endTime: end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    startTimeISO: booking.start_time,
+    endTimeISO: booking.end_time,
     status: booking.status,
     eventType: booking.event_type as any,
     expectedAttendees: booking.expected_attendees,
@@ -236,29 +239,87 @@ export const mapBooking = (booking: ApiBooking) => {
 
 import { Booking, GroupedBooking } from '../types';
 
-export const groupBookings = (bookings: Booking[]): GroupedBooking[] => {
+/**
+ * Groups multiple single-venue bookings into logical multi-venue events.
+ * It combines bookings with the same batchId or (eventName, clubName, date, startTime, and eventType).
+ * 
+ * @param bookings - The array of individual api bookings
+ * @param venues - The array of available venues to resolve venue names
+ * @returns An array of GroupedBooking where multi-venue requests are consolidated
+ */
+export const groupBookings = (bookings: Booking[], venues: ApiVenue[] = []): GroupedBooking[] => {
   const grouped = new Map<string, GroupedBooking>();
 
+  const getVenueName = (id: string, booking: Booking) => {
+    const venue = venues.find(v => v.id === id);
+    if (venue) return venue.name;
+    return (booking as any).venueName || id;
+  };
+
+  const STATUS_PRIORITY: Record<GroupedBooking['status'], number> = {
+    'approved': 4,
+    'pending': 3,
+    'partial': 2,
+    'rejected': 1
+  };
+
   for (const b of bookings) {
-    const key = b.batchId || b.id; // Fallback to id if no batchId
+    // Group by batchId OR (eventName + clubName + date + startTime + eventType)
+    const key = b.batchId || `${b.eventName}-${b.clubName}-${b.date}-${b.startTime}-${b.eventType}`;
 
     if (grouped.has(key)) {
       const existing = grouped.get(key)!;
-      existing.ids.push(b.id);
-      existing.venueIds.push(b.venueId);
 
-      // Prevent duplicate venue names if the same venue was booked multiple times in a single batch (shouldn't happen, but good safeguard)
-      const existingNames = existing.venueName?.split(', ') || [];
-      const newName = (b as any).venueName || b.venueId;
-      if (!existingNames.includes(newName)) {
-        existing.venueName = existing.venueName ? `${existing.venueName}, ${newName}` : newName;
+      // Find if we already have this venue in this group
+      const existingVenueIndex = existing.bookings.findIndex(eb => eb.venueId === b.venueId);
+
+      if (existingVenueIndex !== -1) {
+        // Status prioritization: only keep the "best" status for a venue in a group
+        const existingStatus = existing.bookings[existingVenueIndex].status;
+        if (STATUS_PRIORITY[b.status] > STATUS_PRIORITY[existingStatus]) {
+          // Replace the inferior booking entry
+          const oldBookingId = existing.bookings[existingVenueIndex].id;
+          existing.bookings[existingVenueIndex] = b;
+          existing.ids = existing.ids.filter(id => id !== oldBookingId).concat(b.id);
+        }
+        // If the new one is same or worse priority, we just ignore it for the group display
+      } else {
+        // New venue for this group
+        existing.ids.push(b.id);
+        existing.venueIds.push(b.venueId);
+        existing.bookings.push(b);
+      }
+
+      // Re-calculate display venue names from the unique set of active bookings
+      existing.venueName = existing.bookings
+        .map(book => getVenueName(book.venueId, book))
+        .filter((val, idx, self) => self.indexOf(val) === idx)
+        .join(', ');
+
+      // Re-calculate combined status
+      const statuses = existing.bookings.map(book => book.status);
+      const allApproved = statuses.every(s => s === 'approved');
+      const allRejected = statuses.every(s => s === 'rejected');
+      const anyPending = statuses.some(s => s === 'pending');
+
+      if (allApproved) {
+        existing.status = 'approved';
+      } else if (allRejected) {
+        existing.status = 'rejected';
+      } else if (anyPending) {
+        // If there are pending items, the whole group is pending or partial
+        existing.status = statuses.every(s => s === 'pending') ? 'pending' : 'partial';
+      } else {
+        existing.status = 'partial';
       }
     } else {
       grouped.set(key, {
         ...b,
         ids: [b.id],
         venueIds: [b.venueId],
-        venueName: (b as any).venueName || b.venueId,
+        venueName: getVenueName(b.venueId, b),
+        bookings: [b],
+        status: b.status,
       });
     }
   }

@@ -27,20 +27,48 @@ router.get('/clubs', async (_req, res) => {
 });
 
 router.get('/my-bookings', authMiddleware, async (req, res) => {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('*, clubs(name), venues(name)')
-    .eq('user_id', req.user?.id)
-    .order('start_time', { ascending: false });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+  try {
+    // 1. Find the club associated with this user's email
+    const { data: club, error: clubError } = await supabase
+      .from('clubs')
+      .select('id')
+      .eq('email', req.user.email)
+      .single();
+
+    if (clubError || !club) {
+      // Fallback: if no club found (e.g. admin or unlinked profile), fetch by user_id
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*, clubs(name), venues(name)')
+        .eq('user_id', req.user.id)
+        .order('start_time', { ascending: false });
+
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data || []);
+    }
+
+    // 2. Fetch all bookings for this club (regardless of who created them)
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*, clubs(name), venues(name)')
+      .eq('club_id', club.id)
+      .order('start_time', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(data || []);
+  } catch (err) {
+    return res.status(500).json({ error: (err as any).message });
   }
-
-  return res.json(data || []);
 });
 
 router.get('/bookings/check-conflict', checkConflict);
+import { getBusyVenues } from '../controllers/bookingController';
+router.get('/busy-venues', getBusyVenues);
 router.post('/bookings', authMiddleware, createBooking);
 
 router.get('/public-bookings', async (_req, res) => {
@@ -48,8 +76,8 @@ router.get('/public-bookings', async (_req, res) => {
     .from('bookings')
     .select('*, clubs(name), venues(name)')
     .eq('status', 'approved')
-    .eq('is_public', true)
-    .gte('end_time', new Date().toISOString());
+    .gte('end_time', new Date().toISOString())
+    .order('start_time', { ascending: true });
 
   if (error) {
     return res.status(500).json({ error: error.message });

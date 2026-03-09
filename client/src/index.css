@@ -5,34 +5,44 @@
 
 /* Premium "Aurora" Theme */
 :root {
-  /* Base - Light Mode */
-  --bgMain: #F0F4F8;
-  --card: #FFFFFF;
-  --borderSoft: rgba(226, 232, 240, 0.8);
-  --hoverSoft: rgba(241, 245, 249, 0.8);
-  --textPrimary: #0F172A;
-  --textSecondary: #475569;
-  --textMuted: #94a3b8;
+  /* Base - Light Mode - Premium Refined & Vibrant */
+  --bgMain: #f8fafc;
+  /* Slightly cooler, cleaner slate-50 */
+  --card: #ffffff;
+  --borderSoft: rgba(203, 213, 225, 0.4);
+  /* Slate-200 based, slightly more visible */
+  --hoverSoft: rgba(241, 245, 249, 0.9);
+  /* Slate-100 */
+  --textPrimary: #0f172a;
+  /* Slate-900 for sharper text */
+  --textSecondary: #334155;
+  /* Slate-700 */
+  --textMuted: #64748b;
+  /* Slate-500 for better visibility */
 
-  /* Brand Colors - Vibrant */
-  --brand: #6366f1;
-  /* Indigo 500 */
-  --brand-glow: rgba(99, 102, 241, 0.5);
-  --brandLink: #4f46e5;
+  /* Brand Colors - More Vibrant Indigo */
+  --brand: #4f46e5;
+  /* Indigo-600 for better contrast on light */
+  --brand-glow: rgba(79, 70, 229, 0.15);
+  --brandLink: #4338ca;
+  /* Indigo-700 */
 
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  --success: #059669;
+  /* Emerald-600 */
+  --error: #e11d48;
+  /* Rose-600 */
+  --warning: #d97706;
+  /* Amber-600 */
 
-  --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
-  --accent: #F1F5F9;
-  --accent-foreground: #0F172A;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
 
   /* Glass Utils */
-  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-blur: 20px;
+  --glass-blur: 16px;
 }
 
 /* Dark Mode - Deep Space Aurora */
@@ -115,19 +125,37 @@
     border-color: var(--borderSoft);
   }
 
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
   html {
     scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
   body {
     @apply text-textPrimary antialiased min-h-screen selection:bg-brand selection:text-white;
     background-color: var(--bgMain);
-    /* Animated Gradient Background */
+    /* Animated Gradient Background - Premium Gentle Flow */
     background-image:
-      radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
-      radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.15), transparent 25%);
+      radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1), transparent 30%),
+      radial-gradient(circle at 90% 80%, rgba(244, 63, 94, 0.08), transparent 30%),
+      radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.05), transparent 40%);
     background-attachment: fixed;
-    transition: background 0.5s ease;
+    animation: backgroundFlow 20s ease-in-out infinite alternate;
+    transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes backgroundFlow {
+    0% {
+      background-position: 0% 0%;
+    }
+
+    100% {
+      background-position: 100% 100%;
+    }
   }
 
   .dark body {
@@ -194,8 +222,15 @@
 
   /* Enhanced button animations */
   @keyframes shimmer {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.85; }
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.85;
+    }
   }
 
   .btn-shimmer {
@@ -203,7 +238,10 @@
   }
 
   /* Smooth transitions for interactive elements */
-  button, input, select, textarea {
+  button,
+  input,
+  select,
+  textarea {
     @apply transition-all duration-200;
   }
 
@@ -251,6 +289,7 @@
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

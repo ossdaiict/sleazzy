@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import authMiddleware from '../middleware/auth';
 import { createNotification } from '../services/notification';
 import { getSemesterRange, countCoCurricularBookings, CO_CURRICULAR_LIMIT } from '../services/semesterUtils';
+import { io } from '../server';
 
 const router = express.Router();
 
@@ -69,8 +70,22 @@ router.patch('/bookings/:id/status', async (req, res) => {
     type: status === 'approved' ? 'booking_approved' : 'booking_rejected',
     title: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,
     message: `"${data.event_name}" has been ${status}.`,
+    userId: data.user_id,
     metadata: { bookingId: id, status },
   });
+
+  // Emit real-time event to the specific club room
+  io.to(`club:${data.club_id}`).emit('booking:status_changed', {
+    bookingId: id,
+    status,
+    eventName: data.event_name,
+    clubId: data.club_id,
+  });
+
+  // Broadcast to all clients when approved so the public landing page calendar refreshes
+  if (status === 'approved') {
+    io.emit('events:updated');
+  }
 
   return res.json(data);
 });
@@ -161,11 +176,28 @@ router.put('/bookings/:id', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
+  // Emit real-time updates
+  io.emit('events:updated');
+  io.to(`club:${data.club_id}`).emit('booking:status_changed', {
+    bookingId: id,
+    status: data.status,
+    eventName: data.event_name,
+    clubId: data.club_id,
+    userId: data.user_id,
+  });
+
   return res.json(data);
 });
 
 router.delete('/bookings/:id', async (req, res) => {
   const { id } = req.params;
+
+  // Fetch the booking first so we can notify the club
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('club_id, event_name')
+    .eq('id', id)
+    .single();
 
   const { error } = await supabase
     .from('bookings')
@@ -174,6 +206,17 @@ router.delete('/bookings/:id', async (req, res) => {
 
   if (error) {
     return res.status(500).json({ error: error.message });
+  }
+
+  // Emit real-time deletion
+  io.emit('events:updated');
+  if (booking) {
+    io.to(`club:${booking.club_id}`).emit('booking:status_changed', {
+      bookingId: id,
+      status: 'deleted' as any,
+      eventName: booking.event_name,
+      clubId: booking.club_id,
+    });
   }
 
   return res.json({ success: true });
@@ -241,7 +284,17 @@ router.post('/bookings', async (req, res) => {
     type: 'booking_approved',
     title: 'Event Created by Admin',
     message: `"${event_name}" has been created and auto-approved.`,
+    userId: createdBookings[0].user_id,
     metadata: { batchId, venues: venue_ids },
+  });
+
+  // Emit real-time events
+  io.emit('events:updated');
+  io.to(`club:${club_id}`).emit('booking:status_changed', {
+    bookingId: createdBookings[0].id,
+    status: 'approved',
+    eventName: event_name,
+    clubId: club_id,
   });
 
   return res.status(201).json(createdBookings);
@@ -252,24 +305,21 @@ router.get('/stats', async (_req, res) => {
     const [
       { count: pendingCount, error: pendingError },
       { count: scheduledCount, error: scheduledError },
-      { count: clubsCount, error: clubsError },
-      { count: rejectedCount, error: rejectedError }
+      { count: clubsCount, error: clubsError }
     ] = await Promise.all([
       supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-      supabase.from('clubs').select('*', { count: 'exact', head: true }),
-      supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'rejected')
+      supabase.from('clubs').select('*', { count: 'exact', head: true })
     ]);
 
     if (pendingError) throw pendingError;
     if (scheduledError) throw scheduledError;
     if (clubsError) throw clubsError;
-    if (rejectedError) throw rejectedError;
 
     return res.json({
       pending: pendingCount || 0,
       scheduled: scheduledCount || 0,
-      conflicts: rejectedCount || 0, // Using rejected as a proxy for now
+      conflicts: 0, // Rejected bookings are now considered 'done', not conflicts
       activeClubs: clubsCount || 0
     });
   } catch (error: any) {

@@ -14,6 +14,8 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Calendar, type CalendarEvent } from '../components/ui/calendar';
 import AddBookingDialog from '../components/AddBookingDialog';
 import { groupBookings } from '../lib/api';
+import { getSocket, SOCKET_EVENTS } from '../lib/socket';
+import { toast } from 'sonner';
 
 const AdminDashboard: React.FC = () => {
   const [pendingRequests, setPendingRequests] = React.useState<GroupedBooking[]>([]);
@@ -91,6 +93,32 @@ const AdminDashboard: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Socket.io: join admin room and listen for new booking requests
+  React.useEffect(() => {
+    const socket = getSocket();
+    socket.emit(SOCKET_EVENTS.JOIN_ADMIN);
+    const handleBookingNew = (payload: { eventName: string; clubName: string; venueNames: string }) => {
+      toast.message('New Booking Request', {
+        description: `${payload.clubName} requested "${payload.eventName}" at ${payload.venueNames}`,
+      });
+      fetchData(); // refresh the dashboard
+    };
+
+    const handleEventsUpdated = () => {
+      fetchData();
+    };
+
+    socket.on(SOCKET_EVENTS.BOOKING_NEW, handleBookingNew);
+    socket.on(SOCKET_EVENTS.EVENTS_UPDATED, handleEventsUpdated);
+    socket.on(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleEventsUpdated);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.BOOKING_NEW, handleBookingNew);
+      socket.off(SOCKET_EVENTS.EVENTS_UPDATED, handleEventsUpdated);
+      socket.off(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleEventsUpdated);
+    };
+  }, [fetchData]);
+
   const handleAction = async (bookingIds: string[], status: 'approved' | 'rejected') => {
     try {
       await Promise.all(bookingIds.map(id => apiRequest(`/api/admin/bookings/${id}/status`, {
@@ -119,11 +147,16 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const eventDates = calendarEvents
-    .filter(e => e.status === 'approved')
-    .map(e => new Date(e.date));
-
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
+
+  // Normalize to local midnight so DayPicker's modifier matching works
+  const eventDates = React.useMemo(() =>
+    calendarEvents.map(e => {
+      const d = new Date(e.date);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }),
+    [calendarEvents]
+  );
 
   const calendarEventsWithVenue: CalendarEvent[] = React.useMemo(() =>
     calendarEvents.map(e => ({
@@ -226,15 +259,15 @@ const AdminDashboard: React.FC = () => {
           transition={{ duration: 0.5, delay: 0, ease: [0.25, 0.46, 0.45, 0.94] }}
           whileHover={{ y: -4 }}
         >
-          <Card className="rounded-2xl hover:border-warning/50 transition-all duration-300 shadow-lg shadow-warning/10 glass-card border-warning/30 bg-gradient-to-br from-warning/5 to-transparent">
+          <Card className="rounded-lg border border-borderSoft hover:border-warning/50 transition-all shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Pending</div>
-                <div className="p-3 bg-warning/20 text-warning rounded-xl border border-warning/30 shadow-lg">
-                  <AlertCircle size={20} />
+                <div className="text-xs font-bold text-textMuted uppercase tracking-wider">Pending</div>
+                <div className="p-2 bg-warning/10 text-warning rounded-md border border-warning/20">
+                  <AlertCircle size={18} />
                 </div>
               </div>
-              <div className="text-4xl sm:text-5xl font-extrabold text-warning tracking-tight">{stats.pending}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-textPrimary tracking-tight">{stats.pending}</div>
               <p className="text-xs text-textMuted mt-2">Awaiting approval</p>
             </CardContent>
           </Card>
@@ -245,15 +278,15 @@ const AdminDashboard: React.FC = () => {
           transition={{ duration: 0.5, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
           whileHover={{ y: -4 }}
         >
-          <Card className="rounded-2xl hover:border-brand/50 transition-all duration-300 shadow-lg shadow-brand/10 glass-card border-brand/30 bg-gradient-to-br from-brand/5 to-transparent">
+          <Card className="rounded-lg border border-borderSoft hover:border-brand/50 transition-all shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Scheduled</div>
-                <div className="p-3 bg-brand/20 text-brand rounded-xl border border-brand/30 shadow-lg">
-                  <CalendarIcon size={20} />
+                <div className="text-xs font-bold text-textMuted uppercase tracking-wider">Scheduled</div>
+                <div className="p-2 bg-brand/10 text-brand rounded-md border border-brand/20">
+                  <CalendarIcon size={18} />
                 </div>
               </div>
-              <div className="text-4xl sm:text-5xl font-extrabold text-brand tracking-tight">{stats.scheduled}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-textPrimary tracking-tight">{stats.scheduled}</div>
               <p className="text-xs text-textMuted mt-2">Confirmed events</p>
             </CardContent>
           </Card>
@@ -264,15 +297,15 @@ const AdminDashboard: React.FC = () => {
           transition={{ duration: 0.5, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
           whileHover={{ y: -4 }}
         >
-          <Card className="rounded-2xl hover:border-error/50 transition-all duration-300 shadow-lg shadow-error/10 glass-card border-error/30 bg-gradient-to-br from-error/5 to-transparent">
+          <Card className="rounded-lg border border-borderSoft hover:border-error/50 transition-all shadow-sm bg-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Conflicts</div>
-                <div className="p-3 bg-error/20 text-error rounded-xl border border-error/30 shadow-lg">
-                  <XCircle size={20} />
+                <div className="text-xs font-bold text-textMuted uppercase tracking-wider">Conflicts</div>
+                <div className="p-2 bg-error/10 text-error rounded-md border border-error/20">
+                  <XCircle size={18} />
                 </div>
               </div>
-              <div className="text-4xl sm:text-5xl font-extrabold text-error tracking-tight">{stats.conflicts}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-textPrimary tracking-tight">{stats.conflicts}</div>
               <p className="text-xs text-textMuted mt-2">Time overlaps</p>
             </CardContent>
           </Card>
@@ -283,16 +316,16 @@ const AdminDashboard: React.FC = () => {
           transition={{ duration: 0.5, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
           whileHover={{ y: -4 }}
         >
-          <Link to="/admin/clubs" className="block outline-none focus-visible:ring-2 focus-visible:ring-success rounded-2xl group">
-            <Card className="rounded-2xl group-hover:border-success/50 transition-all duration-300 shadow-lg shadow-success/10 glass-card border-success/30 bg-gradient-to-br from-success/5 to-transparent">
+          <Link to="/admin/clubs" className="block outline-none focus-visible:ring-2 focus-visible:ring-success rounded-lg group">
+            <Card className="rounded-lg border border-borderSoft group-hover:border-success/50 transition-all shadow-sm bg-card">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-xs font-bold text-textMuted uppercase tracking-widest">Active Clubs</div>
-                  <div className="p-3 bg-success/20 text-success rounded-xl border border-success/30 shadow-lg">
-                    <CheckCircle size={20} />
+                  <div className="text-xs font-bold text-textMuted uppercase tracking-wider">Active Clubs</div>
+                  <div className="p-2 bg-success/10 text-success rounded-md border border-success/20">
+                    <CheckCircle size={18} />
                   </div>
                 </div>
-                <div className="text-4xl sm:text-5xl font-extrabold text-success tracking-tight">{stats.activeClubs}</div>
+                <div className="text-4xl sm:text-5xl font-extrabold text-textPrimary tracking-tight">{stats.activeClubs}</div>
                 <p className="text-xs text-textMuted mt-2 flex items-center gap-1 group-hover:text-success transition-colors">
                   Manage Organizations <ChevronRight size={14} />
                 </p>
@@ -315,25 +348,23 @@ const AdminDashboard: React.FC = () => {
 
           <CardContent className="p-4 sm:p-6">
             <div className="flex flex-col md:flex-row gap-6 sm:gap-8">
-              {/* Calendar */}
-              <div className="flex-1 flex justify-center">
+              {/* Calendar container - centered but spanning more width */}
+              <div className="flex-1 flex justify-center lg:justify-start overflow-hidden">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   events={calendarEventsWithVenue}
-                  modifiers={{
-                    hasEvents: eventDates
-                  }}
+                  modifiers={{ hasEvents: eventDates }}
                   modifierClassNames={{
-                    hasEvents: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-brand"
+                    hasEvents: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary"
                   }}
                   className="rounded-2xl"
                 />
               </div>
 
-              {/* Selected Date Details */}
-              <div className="md:w-72 border-t md:border-t-0 md:border-l border-borderSoft md:pl-6 pt-4 md:pt-0 flex flex-col">
+              {/* Selected Date Details - filling the remaining space */}
+              <div className="flex-1 border-t lg:border-t-0 lg:border-l border-borderSoft lg:pl-6 pt-4 lg:pt-0 flex flex-col min-w-0">
                 <h4 className="text-sm font-semibold text-textMuted uppercase tracking-wider mb-4">
                   {selectedDate ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Select a date'}
                 </h4>

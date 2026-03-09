@@ -11,8 +11,11 @@ import {
   Lock,
   ChevronDown,
   Check,
-  Info
+  Info,
+  Clock,
+  Plus
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { CLUBS, VENUES } from '../constants';
 import { apiRequest, type ApiClub, type ApiVenue } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
@@ -36,6 +39,7 @@ interface BookSlotProps {
 }
 
 const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
+  const location = useLocation();
   const [clubs, setClubs] = useState<ApiClub[]>([]);
   const [venues, setVenues] = useState<ApiVenue[]>([]);
   const [formData, setFormData] = useState({
@@ -44,6 +48,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     expectedAttendees: '',
     clubName: '',
     date: '',
+    endDate: '',
     startTime: '',
     endTime: '',
     venueIds: [] as string[]
@@ -52,6 +57,9 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [endDatePickerOpen, setEndDatePickerOpen] = useState(false);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(undefined);
+  const [busyVenueIds, setBusyVenueIds] = useState<string[]>([]);
   const [metaError, setMetaError] = useState<string | null>(null);
 
   const [warnings, setWarnings] = useState({
@@ -88,6 +96,32 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     fetchMeta();
   }, []);
 
+  // Handle pre-fill from location state (Request Extra Room)
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (prefill) {
+      setFormData(prev => ({
+        ...prev,
+        eventName: prefill.eventName || '',
+        eventType: prefill.eventType || 'closed_club',
+        expectedAttendees: prefill.expectedAttendees || '',
+        date: prefill.date || '',
+        endDate: prefill.date || '',
+        startTime: prefill.startTime || '',
+        endTime: prefill.endTime || '',
+        clubName: prefill.clubName || prev.clubName
+      }));
+
+      if (prefill.date) {
+        const d = new Date(prefill.date);
+        if (!isNaN(d.getTime())) {
+          setSelectedDate(d);
+          setSelectedEndDate(d);
+        }
+      }
+    }
+  }, [location.state]);
+
   // Handle date selection from Calendar
   useEffect(() => {
     if (selectedDate) {
@@ -98,15 +132,33 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
       handleChange('date', dateString);
       setDatePickerOpen(false);
+
+      // Auto-set endDate if it's empty or earlier than startDate
+      if (!formData.endDate || new Date(formData.endDate) < selectedDate) {
+        handleChange('endDate', dateString);
+        setSelectedEndDate(selectedDate);
+      }
     }
   }, [selectedDate]);
 
+  // Handle end date selection from Calendar
+  useEffect(() => {
+    if (selectedEndDate) {
+      const year = selectedEndDate.getFullYear();
+      const month = String(selectedEndDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedEndDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+
+      handleChange('endDate', dateString);
+      setEndDatePickerOpen(false);
+    }
+  }, [selectedEndDate]);
+
   // Parse date string to Date object for Calendar
   useEffect(() => {
-    if (formData.date) {
-      setSelectedDate(new Date(formData.date));
-    }
-  }, [formData.date]);
+    if (formData.date) setSelectedDate(new Date(formData.date));
+    if (formData.endDate) setSelectedEndDate(new Date(formData.endDate));
+  }, [formData.date, formData.endDate]);
 
   const getClubGroup = (name: string): ClubGroupType | undefined => {
     if (name === currentUser.name && currentUser.group) {
@@ -182,58 +234,74 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
   // Operating Hours Logic
   useEffect(() => {
-    if (!formData.date || !formData.startTime || !formData.endTime) {
+    const endDates = formData.endDate || formData.date;
+    if (!formData.date || !endDates || !formData.startTime || !formData.endTime) {
       setWarnings(prev => ({ ...prev, hours: '' }));
       return;
     }
 
-    const dateObj = new Date(formData.date);
-    const day = dateObj.getDay();
-    const isWeekend = day === 0 || day === 6;
-
-    const start = formData.startTime;
-    const end = formData.endTime;
+    const startDate = new Date(formData.date);
+    const endDate = new Date(endDates);
 
     let errorMsg = '';
 
-    if (end <= start) {
-      errorMsg = "End time must be after start time.";
-    } else if (isWeekend) {
-      if (start < "08:00") {
-        errorMsg = "On weekends, bookings are allowed from 8:00 AM to 12:00 AM.";
-      }
+    if (endDate < startDate) {
+      errorMsg = "End date cannot be before start date.";
+    } else if (formData.date === endDates && formData.endTime <= formData.startTime) {
+      errorMsg = "End time must be after start time on the same day.";
     } else {
-      if (start < "16:00") {
-        errorMsg = "On weekdays, bookings are only allowed from 4:00 PM to 12:00 AM.";
+      // Validate restricted hours day-by-day (IST)
+      const currentDate = new Date(startDate);
+
+      while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay();
+        const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday
+
+        // Only weekdays have restricted timings (8:00 AM to 6:00 PM IST)
+        if (isWeekday) {
+          const isFirstDay = currentDate.getTime() === startDate.getTime();
+          const isLastDay = currentDate.getTime() === endDate.getTime();
+
+          // Determine the active time block for THIS specific day
+          const activeStart = isFirstDay ? formData.startTime : "00:00";
+          const activeEnd = isLastDay ? formData.endTime : "24:00";
+
+          // Restricted block is 08:00 to 18:00 (8:00 AM to 6:00 PM IST)
+          // Overlap condition: activeStart < RestrictedEnd AND activeEnd > RestrictedStart
+          if (activeStart < "18:00" && activeEnd > "08:00") {
+            errorMsg = "On weekdays, bookings are not allowed between 8:00 AM and 6:00 PM (IST). Your selection overlaps with these restricted academic hours.";
+            break;
+          }
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
     }
 
     setWarnings(prev => ({ ...prev, hours: errorMsg }));
-  }, [formData.date, formData.startTime, formData.endTime]);
+  }, [formData.date, formData.endDate, formData.startTime, formData.endTime]);
 
   // Conflict Logic
   useEffect(() => {
-    if (!formData.date || !formData.startTime || !formData.endTime || !formData.clubName) {
-      setWarnings(prev => ({ ...prev, conflict: '' }));
+    const endDates = formData.endDate || formData.date;
+    if (!formData.date || !endDates || !formData.startTime || !formData.endTime || !formData.clubName) {
       return;
     }
 
     const checkConflicts = async () => {
       try {
-        if (!formData.date || !formData.startTime || !formData.endTime) return;
+        if (venues.length === 0) return;
 
         const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
-        const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+        const endDateTime = new Date(`${endDates}T${formData.endTime}:00`);
 
         const query = new URLSearchParams({
           startTime: startDateTime.toISOString(),
           endTime: endDateTime.toISOString(),
           clubId: clubs.find(c => c.name === formData.clubName)?.id || '',
+          venueIds: venues.map(v => v.id).join(','),
         });
-
-        if (formData.venueIds.length > 0) {
-          query.append('venueIds', formData.venueIds.join(','));
-        }
 
         const { hasConflict, message } = await apiRequest<{ hasConflict: boolean; message: string }>(
           `/api/bookings/check-conflict?${query.toString()}`,
@@ -241,18 +309,19 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         );
 
         if (hasConflict) {
-          setWarnings(prev => ({ ...prev, conflict: message }));
+          const busyNames = message.split(': ').pop()?.split(', ') || [];
+          const busyIds = venues.filter(v => busyNames.includes(v.name)).map(v => v.id);
+          setBusyVenueIds(busyIds);
         } else {
-          setWarnings(prev => ({ ...prev, conflict: '' }));
+          setBusyVenueIds([]);
         }
       } catch (err) {
         console.error('Failed to check conflicts:', err);
-        setWarnings(prev => ({ ...prev, conflict: 'Could not verify conflicts. Please check your connection and try again.' }));
       }
     };
 
     checkConflicts();
-  }, [formData.date, formData.startTime, formData.endTime, formData.clubName, formData.venueIds]);
+  }, [formData.date, formData.endDate, formData.startTime, formData.endTime, formData.clubName, venues]);
 
   // Co-curricular limit check
   useEffect(() => {
@@ -297,6 +366,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   };
 
   const handleVenueToggle = (venueId: string) => {
+    if (busyVenueIds.includes(venueId)) return;
     setFormData(prev => {
       const current = prev.venueIds;
       const updated = current.includes(venueId)
@@ -309,7 +379,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (warnings.timeline || warnings.conflict || warnings.hours || warnings.coCurricularLimit?.startsWith('This club has already')) {
+    const isSelectedVenueBusy = formData.venueIds.some(id => busyVenueIds.includes(id));
+    if (warnings.timeline || isSelectedVenueBusy || warnings.hours || warnings.coCurricularLimit?.startsWith('This club has already')) {
       toastError('Please resolve the warnings before submitting.');
       return;
     }
@@ -321,8 +392,9 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
       const selectedClub = clubs.find(c => c.name === formData.clubName);
       if (!selectedClub) throw new Error("Invalid club selected");
 
+      const endDates = formData.endDate || formData.date;
       const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
-      const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+      const endDateTime = new Date(`${endDates}T${formData.endTime}:00`);
 
       if (formData.venueIds.length === 0) {
         toastError('Please select at least one venue.');
@@ -350,11 +422,13 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         expectedAttendees: '',
         clubName: currentUser.role === 'club' ? currentUser.name : '',
         date: '',
+        endDate: '',
         startTime: '',
         endTime: '',
         venueIds: []
       });
       setSelectedDate(undefined);
+      setSelectedEndDate(undefined);
       setWarnings({
         timeline: '',
         conflict: '',
@@ -372,7 +446,8 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     }
   };
 
-  const hasErrors = !!warnings.timeline || !!warnings.conflict || !!warnings.hours || !!warnings.coCurricularLimit?.startsWith('This club has already');
+  const isSelectedVenueBusy = formData.venueIds.some(id => busyVenueIds.includes(id));
+  const hasErrors = !!warnings.timeline || isSelectedVenueBusy || !!warnings.hours || !!warnings.coCurricularLimit?.startsWith('This club has already');
 
   return (
     <motion.div
@@ -394,7 +469,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         </motion.div>
 
         <motion.h1
-          className="text-5xl md:text-6xl font-extrabold tracking-tighter bg-gradient-to-r from-brand via-purple-500 to-pink-500 bg-clip-text text-transparent"
+          className="text-5xl md:text-6xl font-extrabold tracking-tighter text-textPrimary"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -415,12 +490,12 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="glass-card rounded-3xl overflow-hidden shadow-2xl shadow-brand/20 border-white/30 dark:border-white/10 backdrop-blur-xl"
+        className="tech-card overflow-hidden shadow-md"
       >
-        {/* Enhanced Progress Decoration */}
-        <div className="h-2 w-full bg-gradient-to-r from-borderSoft via-brand/20 to-transparent relative overflow-hidden">
+        {/* Progress Line */}
+        <div className="h-1 w-full bg-borderSoft relative overflow-hidden">
           <motion.div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-brand to-brandLink"
+            className="absolute top-0 left-0 h-full bg-brand"
             initial={{ width: "0%" }}
             animate={{ width: isSubmitting ? "100%" : "35%" }}
             transition={{ duration: 1.5, ease: "circOut" }}
@@ -440,15 +515,15 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-0">
 
-            {/* Sidebar / Left Panel - Enhanced Context Info */}
-            <div className="lg:col-span-4 bg-gradient-to-b from-hoverSoft/50 to-hoverSoft/20 p-8 space-y-8 lg:border-r border-borderSoft/50 lg:border-b-0 border-b">
+            {/* Sidebar / Left Panel Context Info */}
+            <div className="lg:col-span-4 bg-hoverSoft/30 p-8 space-y-8 lg:border-r border-borderSoft lg:border-b-0 border-b">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="h-8 w-1.5 bg-gradient-to-b from-brand to-brandLink rounded-full" />
                   <h3 className="text-lg font-bold text-textPrimary">Key Guidelines</h3>
                 </div>
                 <div className="space-y-3">
-                  <div className="p-4 bg-white/60 dark:bg-white/5 rounded-xl border border-borderSoft/60 shadow-sm hover:shadow-md hover:border-brand/30 transition-all backdrop-blur-sm">
+                  <div className="p-4 bg-card rounded-lg border border-borderSoft shadow-sm hover:shadow hover:border-brand/40 transition-all">
                     <div className="flex items-start gap-3">
                       <div className="h-2 w-2 rounded-full bg-brand mt-2 shrink-0" />
                       <div>
@@ -457,7 +532,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 bg-white/60 dark:bg-white/5 rounded-xl border border-borderSoft/60 shadow-sm hover:shadow-md hover:border-success/30 transition-all backdrop-blur-sm">
+                  <div className="p-4 bg-card rounded-lg border border-borderSoft shadow-sm hover:shadow hover:border-success/40 transition-all">
                     <div className="flex items-start gap-3">
                       <div className="h-2 w-2 rounded-full bg-success mt-2 shrink-0" />
                       <div>
@@ -466,19 +541,19 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 bg-white/60 dark:bg-white/5 rounded-xl border border-borderSoft/60 shadow-sm hover:shadow-md hover:border-warning/30 transition-all backdrop-blur-sm">
+                  <div className="p-4 bg-card rounded-lg border border-borderSoft shadow-sm hover:shadow hover:border-warning/40 transition-all">
                     <div className="flex items-start gap-3">
                       <div className="h-2 w-2 rounded-full bg-warning mt-2 shrink-0" />
                       <div>
                         <span className="font-semibold block text-textPrimary text-sm mb-1">Weekday Hours</span>
-                        <p className="text-xs text-textSecondary leading-relaxed">4:00 PM – 12:00 AM</p>
+                        <p className="text-xs text-textSecondary leading-relaxed">6:00 PM – 8:00 AM</p>
                       </div>
                     </div>
                   </div>
                   {warnings.coCurricularLimit && (
-                    <div className={`p-4 rounded-xl border shadow-sm hover:shadow-md transition-all backdrop-blur-sm ${warnings.coCurricularLimit.startsWith('This club has already')
-                      ? 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 hover:border-red-300'
-                      : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 hover:border-amber-300'
+                    <div className={`p-4 rounded-lg border shadow-sm transition-all ${warnings.coCurricularLimit.startsWith('This club has already')
+                      ? 'bg-error/5 border-error/30'
+                      : 'bg-warning/5 border-warning/30'
                       }`}>
                       <div className="flex items-start gap-3">
                         <div className={`h-2 w-2 rounded-full mt-2 shrink-0 ${warnings.coCurricularLimit.startsWith('This club has already') ? 'bg-red-500' : 'bg-amber-500'
@@ -493,13 +568,54 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
               </div>
 
+              {/* Booking Preview Section */}
+              <div className="pt-6 border-t border-borderSoft/30">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-8 w-1.5 bg-gradient-to-b from-success to-emerald-600 rounded-full" />
+                  <h3 className="text-lg font-bold text-textPrimary">Your Selection</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="p-4 bg-success/5 border border-success/20 rounded-xl space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center text-success">
+                        <CalendarIcon size={20} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-success uppercase tracking-wider">Event Date(s)</p>
+                        <p className="text-sm font-bold text-textPrimary">
+                          {formData.date ? (
+                            <span>
+                              {new Date(formData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', weekday: 'short' })}
+                              {formData.endDate && formData.endDate !== formData.date && (
+                                <> – {new Date(formData.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', weekday: 'short' })}</>
+                              )}
+                            </span>
+                          ) : 'Not selected'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center text-success">
+                        <Clock size={20} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-success uppercase tracking-wider">Time Range</p>
+                        <p className="text-sm font-bold text-textPrimary">
+                          {formData.startTime && formData.endTime ? `${formData.startTime} – ${formData.endTime}` : 'Pick times'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {currentUser.role === 'club' && (
                 <div className="pt-6 border-t border-borderSoft/30">
                   <h3 className="text-xs font-bold text-textMuted uppercase tracking-wider mb-3 flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-brand" />
                     Logged in as
                   </h3>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-brand/5 border border-brand/20">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-card border border-borderSoft">
                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand to-brandLink flex items-center justify-center text-white font-bold text-lg shadow-lg">
                       {currentUser.name.charAt(0).toUpperCase()}
                     </div>
@@ -530,7 +646,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       value={formData.eventName}
                       onChange={(e) => handleChange('eventName', e.target.value)}
                       placeholder="e.g. Hackathon Kickoff, Tech Summit..."
-                      className="h-12 bg-white/70 dark:bg-white/5 border-borderSoft focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all text-base rounded-xl font-medium shadow-sm"
+                      className="h-10 bg-card border-borderSoft focus:border-brand focus:ring-1 focus:ring-brand text-base rounded-md font-medium shadow-sm transition-all"
                     />
                   </div>
 
@@ -587,16 +703,16 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="sm:col-span-2 space-y-2.5">
-                    <Label className="text-textSecondary font-semibold text-sm">Select Date *</Label>
+                  <div className="space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">From Date *</Label>
                     <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full h-12 justify-start text-left font-semibold border-borderSoft hover:bg-hoverSoft/50 transition-all bg-white/70 dark:bg-white/5 text-textPrimary rounded-xl shadow-sm",
+                            "w-full h-10 justify-start text-left font-medium border-borderSoft hover:bg-hoverSoft/50 transition-all bg-card text-textPrimary rounded-md shadow-sm",
                             !formData.date && "text-textMuted",
-                            warnings.timeline && "border-error/50 ring-2 ring-error/20 bg-error/5"
+                            warnings.timeline && "border-error/50 ring-1 ring-error"
                           )}
                           onClick={() => setDatePickerOpen(true)}
                         >
@@ -626,19 +742,63 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                         />
                       </PopoverContent>
                     </Popover>
-                    {warnings.timeline && (
-                      <p className="text-xs text-error font-semibold flex items-center gap-1.5 mt-2 bg-error/5 p-2.5 rounded-lg border border-error/20">
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <Label className="text-textSecondary font-semibold text-sm">To Date *</Label>
+                    <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full h-10 justify-start text-left font-medium border-borderSoft hover:bg-hoverSoft/50 transition-all bg-card text-textPrimary rounded-md shadow-sm",
+                            !formData.endDate && "text-textMuted"
+                          )}
+                          onClick={() => setEndDatePickerOpen(true)}
+                        >
+                          <CalendarIcon className="mr-2 h-5 w-5 text-brand opacity-70" />
+                          {formData.endDate ? (
+                            <span className="font-semibold">
+                              {new Date(formData.endDate).toLocaleDateString('en-US', {
+                                weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'
+                              })}
+                            </span>
+                          ) : (
+                            <span>Same as From Date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedEndDate || selectedDate}
+                          onSelect={setSelectedEndDate}
+                          disabled={(date) => {
+                            // Can only select End Date >= Start Date
+                            if (!selectedDate) return false;
+                            const start = new Date(selectedDate);
+                            start.setHours(0, 0, 0, 0);
+                            return date < start;
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {(warnings.timeline) && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-error font-semibold flex items-center gap-1.5 bg-error/5 p-2.5 rounded-lg border border-error/20">
                         <AlertTriangle size={14} className="shrink-0" /> {warnings.timeline}
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2.5">
                     <Label className="text-textSecondary font-semibold text-sm">Start Time *</Label>
                     <TimePicker
                       value={formData.startTime}
                       onChange={(v) => handleChange('startTime', v)}
-                      className={cn("h-12 rounded-xl", warnings.hours && "border-error/50 ring-2 ring-error/20")}
+                      className={cn("h-10 rounded-md", warnings.hours && "border-error transition-all")}
                     />
                   </div>
 
@@ -647,23 +807,16 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                     <TimePicker
                       value={formData.endTime}
                       onChange={(v) => handleChange('endTime', v)}
-                      className={cn("h-12 rounded-xl", warnings.hours && "border-error/50 ring-2 ring-error/20")}
+                      className={cn("h-10 rounded-md", warnings.hours && "border-error transition-all")}
                     />
                   </div>
 
-                  {(warnings.hours || warnings.conflict) && (
+                  {(warnings.hours) && (
                     <div className="sm:col-span-2 space-y-3">
                       {warnings.hours && (
                         <Alert className="bg-error/5 border-2 border-error/30 text-error rounded-xl">
                           <AlertTriangle size={16} className="shrink-0" />
                           <AlertDescription className="font-semibold ml-2">{warnings.hours}</AlertDescription>
-                        </Alert>
-                      )}
-                      {warnings.conflict && (
-                        <Alert className="bg-error/5 border-2 border-error/30 text-error rounded-xl">
-                          <AlertOctagon size={16} className="shrink-0" />
-                          <AlertTitle className="font-bold">Conflict Detected</AlertTitle>
-                          <AlertDescription className="font-semibold mt-1">{warnings.conflict}</AlertDescription>
                         </Alert>
                       )}
                     </div>
@@ -688,7 +841,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                         variant="outline"
                         role="combobox"
                         className={cn(
-                          "w-full h-12 justify-between border-borderSoft hover:bg-hoverSoft/50 transition-all bg-white/70 dark:bg-white/5 text-textPrimary rounded-xl shadow-sm font-semibold",
+                          "w-full h-11 justify-between border-borderSoft hover:bg-hoverSoft/50 transition-all bg-card text-textPrimary rounded-xl shadow-sm font-bold text-sm",
                           formData.venueIds.length === 0 && "text-textMuted"
                         )}
                       >
@@ -700,69 +853,93 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                               : "Choose venues..."}
                           </span>
                         </div>
-                        <ChevronDown className="h-5 w-5 opacity-50 shrink-0" />
+                        <ChevronDown className="h-5 w-5 opacity-40 shrink-0" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[360px] p-0 rounded-xl shadow-2xl" align="start">
-                      <div className="max-h-[400px] overflow-y-auto space-y-1 p-3">
+                    <PopoverContent
+                      className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-borderSoft"
+                      align="start"
+                    >
+                      <div className="max-h-[220px] overflow-y-auto space-y-0.5 p-1 relative">
                         {/* Category A Venues */}
-                        <div className="sticky top-0 bg-popover z-10 px-3 py-2 mb-2">
-                          <div className="px-2 py-1.5 text-xs font-bold text-brand uppercase tracking-wider bg-brand/10 rounded-lg border border-brand/20 flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-brand" />
-                            Standard Venues (Category A)
+                        <div className="px-2 py-1 mb-1 mt-1">
+                          <div className="text-[11px] font-black text-brand uppercase tracking-widest flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-brand" />
+                            Standard Venues
                           </div>
                         </div>
 
                         {venues.filter(v => normalizeVenueCategory(v.category) === 'A').length === 0 ? (
-                          <div className="px-2 py-3 text-center text-xs text-textMuted">No Category A venues</div>
+                          <div className="px-3 py-4 text-center text-xs font-semibold text-textMuted/60 uppercase tracking-widest">No Category A venues</div>
                         ) : (
                           venues.filter(v => normalizeVenueCategory(v.category) === 'A').map(v => (
                             <div
                               key={v.id}
-                              className="flex items-center space-x-3 px-3 py-2.5 hover:bg-hoverSoft/50 rounded-lg cursor-pointer transition-all group"
+                              className="flex items-center space-x-3 px-3 py-2.5 hover:bg-brand/5 rounded-lg cursor-pointer transition-all group mx-1"
                               onClick={() => handleVenueToggle(v.id)}
                             >
                               <div className={cn(
-                                "h-5 w-5 border-2 rounded-md flex items-center justify-center transition-all shrink-0",
+                                "h-4 w-4 border rounded-md flex items-center justify-center transition-all shrink-0",
                                 formData.venueIds.includes(v.id)
-                                  ? "bg-brand border-brand text-white shadow-md shadow-brand/30"
+                                  ? "bg-brand border-brand text-white shadow-sm"
                                   : "border-textMuted/40 bg-transparent group-hover:border-brand/50"
                               )}>
-                                {formData.venueIds.includes(v.id) && <Check className="h-3.5 w-3.5" />}
+                                {formData.venueIds.includes(v.id) && <Check className="h-3 w-3" />}
                               </div>
-                              <span className="text-sm font-medium text-textPrimary flex-1">{v.name}</span>
-                              <Badge variant="outline" className="text-xs bg-brand/5 border-brand/30 text-brand">Cat A</Badge>
+                              <span className={cn(
+                                "text-sm font-bold flex-1 transition-colors truncate",
+                                busyVenueIds.includes(v.id) ? "text-textMuted/50 italic font-medium" : "text-textPrimary group-hover:text-brand"
+                              )}>
+                                {v.name}
+                              </span>
+                              {busyVenueIds.includes(v.id) ? (
+                                <span className="text-[10px] font-black text-error uppercase tracking-tighter ml-2">Busy</span>
+                              ) : (
+                                <span className="text-[9px] font-bold bg-brand/10 border border-brand/20 text-brand px-1.5 py-0.5 rounded uppercase ml-2">Cat A</span>
+                              )}
                             </div>
                           ))
                         )}
 
                         {/* Category B Venues */}
-                        <div className="sticky top-0 bg-popover z-10 px-3 py-2 mt-4 mb-2">
-                          <div className="px-2 py-1.5 text-xs font-bold text-warning uppercase tracking-wider bg-warning/10 rounded-lg border border-warning/20 flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-warning" />
-                            Restricted Venues (Category B)
+                        <div className="px-2 py-1 mt-3 mb-1">
+                          <div className="text-[11px] font-black text-warning uppercase tracking-widest flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-warning" />
+                            Restricted Venues
                           </div>
                         </div>
 
                         {venues.filter(v => normalizeVenueCategory(v.category) === 'B').length === 0 ? (
-                          <div className="px-2 py-3 text-center text-xs text-textMuted">No Category B venues</div>
+                          <div className="px-3 py-4 text-center text-xs font-semibold text-textMuted/60 uppercase tracking-widest">No Category B venues</div>
                         ) : (
                           venues.filter(v => normalizeVenueCategory(v.category) === 'B').map(v => (
                             <div
                               key={v.id}
-                              className="flex items-center space-x-3 px-3 py-2.5 hover:bg-hoverSoft/50 rounded-lg cursor-pointer transition-all group"
+                              className="flex items-center space-x-3 px-3 py-2.5 hover:bg-warning/5 rounded-lg cursor-pointer transition-all group mx-1"
                               onClick={() => handleVenueToggle(v.id)}
                             >
                               <div className={cn(
-                                "h-5 w-5 border-2 rounded-md flex items-center justify-center transition-all shrink-0",
+                                "h-4 w-4 border rounded-md flex items-center justify-center transition-all shrink-0",
                                 formData.venueIds.includes(v.id)
-                                  ? "bg-warning border-warning text-white shadow-md shadow-warning/30"
+                                  ? "bg-warning border-warning text-white shadow-sm"
                                   : "border-textMuted/40 bg-transparent group-hover:border-warning/50"
                               )}>
-                                {formData.venueIds.includes(v.id) && <Check className="h-3.5 w-3.5" />}
+                                {formData.venueIds.includes(v.id) && <Check className="h-3 w-3" />}
                               </div>
-                              <span className="text-sm font-medium text-textPrimary flex-1">{v.name}</span>
-                              <Lock size={14} className="text-warning opacity-70 shrink-0" />
+                              <span className={cn(
+                                "text-sm font-bold flex-1 transition-colors truncate",
+                                busyVenueIds.includes(v.id) ? "text-textMuted/50 italic font-medium" : "text-textPrimary group-hover:text-warning"
+                              )}>
+                                {v.name}
+                              </span>
+                              {busyVenueIds.includes(v.id) ? (
+                                <span className="text-[10px] font-black text-error uppercase tracking-tighter ml-2">Busy</span>
+                              ) : (
+                                <div className="flex items-center gap-1 bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded ml-2">
+                                  <span className="text-[9px] font-bold text-warning uppercase">Cat B</span>
+                                  <Lock size={10} className="text-warning opacity-80" />
+                                </div>
+                              )}
                             </div>
                           ))
                         )}
@@ -842,10 +1019,10 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                   type="submit"
                   disabled={hasErrors || isSubmitting || !formData.eventName || !formData.date || !formData.startTime || !formData.endTime || formData.venueIds.length === 0}
                   className={cn(
-                    "w-full h-14 text-base font-bold rounded-xl shadow-lg transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2",
+                    "w-full h-12 text-base font-bold rounded-lg shadow-sm transition-transform flex items-center justify-center gap-2",
                     hasErrors || isSubmitting || !formData.eventName || !formData.date || !formData.startTime || !formData.endTime || formData.venueIds.length === 0
-                      ? "bg-textMuted/50 opacity-60 cursor-not-allowed"
-                      : "bg-gradient-to-r from-brand via-brandLink to-purple-500 hover:shadow-2xl hover:shadow-brand/30 text-white active:scale-95"
+                      ? "bg-borderSoft text-textMuted cursor-not-allowed"
+                      : "bg-brand text-bgMain hover:scale-[1.02] active:scale-[0.98]"
                   )}
                 >
                   {isSubmitting ? (

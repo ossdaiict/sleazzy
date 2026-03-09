@@ -6,6 +6,7 @@ export interface CreateNotificationParams {
     type: NotificationType;
     title: string;
     message: string;
+    userId?: string;
     metadata?: Record<string, any>;
 }
 
@@ -14,7 +15,7 @@ export interface CreateNotificationParams {
  * These are shown in the admin notifications panel.
  */
 export async function createNotification(params: CreateNotificationParams) {
-    const { type, title, message, metadata } = params;
+    const { type, title, message, userId, metadata } = params;
 
     const { error } = await supabase
         .from('notifications')
@@ -22,6 +23,7 @@ export async function createNotification(params: CreateNotificationParams) {
             type,
             title,
             message,
+            user_id: userId, // Added userId to the insert
             metadata: metadata || {},
             is_read: false,
         });
@@ -45,6 +47,7 @@ export async function createBookingPendingNotifications(
         title: 'New Booking Request',
         message: `"${item.eventName}" at ${item.venueName} by ${item.clubName || 'Unknown'} — ${item.startTime} to ${item.endTime}`,
         metadata: { venue: item.venueName, event: item.eventName, club: item.clubName },
+        user_id: null, // Admin notifications usually have null user_id if they are global for all admins
         is_read: false,
     }));
 

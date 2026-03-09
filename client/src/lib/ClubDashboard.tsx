@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CalendarPlus, Clock, MapPin, ChevronRight, Info, Users, AlertTriangle, RefreshCw } from 'lucide-react';
-import { apiRequest, mapBooking, type ApiBooking, type ApiVenue } from './api';
+import { apiRequest, mapBooking, groupBookings, type ApiBooking, type ApiVenue } from './api';
 import { getErrorMessage } from './errors';
 import { Booking } from '../types';
 import { Button } from '../components/ui/button';
@@ -12,6 +12,8 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Calendar, type CalendarEvent } from '../components/ui/calendar';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { getSocket, SOCKET_EVENTS } from './socket';
+import { toast } from 'sonner';
 
 import { User } from '../types';
 
@@ -56,6 +58,36 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     fetchEvents();
   }, [fetchEvents]);
 
+  // Socket.io: join the club's own room and listen for booking status changes
+  React.useEffect(() => {
+    // We use the user's email to associate with the right club room
+    // The server emits to `club:${data.club_id}`, so we need the club id
+    // We'll figure it out once events load by checking myEvents[0]?.clubId
+    const socket = getSocket();
+
+    // Join club room if we have a clubId from the first event
+    if (myEvents.length > 0) {
+      socket.emit(SOCKET_EVENTS.JOIN_CLUB, myEvents[0].clubId);
+    } else if (user?.role === 'club') {
+      // If we have at least one event, it works. 
+    }
+
+    const handleStatusChanged = (payload: { eventName: string; status: 'approved' | 'rejected' | 'deleted'; clubId: string }) => {
+      fetchEvents(); // refresh to show updated status
+    };
+
+    const handleEventsUpdated = () => {
+      fetchEvents();
+    };
+
+    socket.on(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleStatusChanged);
+    socket.on(SOCKET_EVENTS.EVENTS_UPDATED, handleEventsUpdated);
+    return () => {
+      socket.off(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleStatusChanged);
+      socket.off(SOCKET_EVENTS.EVENTS_UPDATED, handleEventsUpdated);
+    };
+  }, [fetchEvents, myEvents, user]);
+
   const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || id;
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -67,37 +99,45 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   };
 
   const getEventsForDate = (date: Date) => {
-    return allEvents.filter(e => {
+    return myEvents.filter(e => {
       const eDate = new Date(e.date);
       return isSameDay(eDate, date);
     });
   };
 
-  // Get dates that have events for calendar highlighting
-  const eventDates = allEvents.map(e => new Date(e.date));
+  // Normalize to local midnight so DayPicker's modifier date-matching works correctly
+  const eventDates = React.useMemo(() =>
+    myEvents.map(e => {
+      const d = new Date(e.date);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }),
+    [myEvents]
+  );
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
+  // Show club's own bookings on the calendar (includes pending, approved, rejected)
   const calendarEventsWithVenue: CalendarEvent[] = React.useMemo(() =>
-    allEvents.map(e => ({
+    myEvents.map(e => ({
       eventName: e.eventName,
       clubName: e.clubName,
       date: e.date,
       startTime: e.startTime,
       endTime: e.endTime,
       venueName: getVenueName(e.venueId),
+      status: e.status,
     })),
-    [allEvents, venues]
+    [myEvents, venues]
   );
 
   const upcomingEvents = React.useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    return allEvents
+    return groupBookings(myEvents, venues)
       .filter(e => new Date(e.date) >= now)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 6);
-  }, [allEvents]);
+  }, [myEvents, venues]);
 
   if (error) {
     return (
@@ -140,7 +180,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
@@ -183,62 +223,67 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
 
             <CardContent className="p-4 sm:p-6">
               <div className="flex flex-col md:flex-row gap-6 sm:gap-8">
-                {/* Calendar */}
-                <div className="flex-1 flex justify-center">
+                {/* Calendar container - centered but spanning more width */}
+                <div className="flex-1 flex justify-center lg:justify-start overflow-hidden">
                   <Calendar
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
                     events={calendarEventsWithVenue}
-                    modifiers={{
-                      hasEvents: eventDates
-                    }}
+                    modifiers={{ hasEvents: eventDates }}
                     modifierClassNames={{
-                      hasEvents: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-brand"
+                      hasEvents: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary"
                     }}
                     className="rounded-2xl"
                   />
                 </div>
 
-                {/* Selected Date Details */}
-                <div className="md:w-64 border-t md:border-t-0 md:border-l border-borderSoft md:pl-6 pt-4 md:pt-0 flex flex-col">
+                <div className="lg:flex-1 border-t lg:border-t-0 lg:border-l border-borderSoft lg:pl-6 pt-4 lg:pt-0 flex flex-col min-w-0">
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                     {selectedDate ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Select a date'}
                   </h4>
 
                   <div className="flex-1 overflow-y-auto space-y-3 max-h-[300px]">
-                    {selectedDateEvents.length > 0 ? (
-                      selectedDateEvents.map((event, index) => (
-                        <motion.div
-                          key={event.id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.3, delay: index * 0.05 }}
-                          whileHover={{ scale: 1.01 }}
-                        >
-                          <Card className="border border-borderSoft rounded-xl hover:border-brand/30 transition-colors rounded-xl">
-                            <CardContent className="p-4">
-                              <div className="font-semibold text-foreground text-sm mb-1">{event.eventName}</div>
-                              <div className="text-xs text-primary font-medium mt-0.5 mb-2">{event.clubName}</div>
-                              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                                <Clock size={12} className="text-primary/60" />
-                                <span>{event.startTime} - {event.endTime}</span>
-                              </div>
-                              <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                                <MapPin size={12} className="text-primary/60" />
-                                <span>{getVenueName(event.venueId)}</span>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))
-                    ) : (
-                      selectedDate ? (
-                        <div className="text-center py-8 text-muted-foreground text-sm">
-                          No events scheduled for this day.
-                        </div>
-                      ) : null
-                    )}
+                    {selectedDate ? (
+                      (() => {
+                        const dayGrouped = groupBookings(selectedDateEvents, venues);
+                        return dayGrouped.length > 0 ? (
+                          dayGrouped.map((event, index) => (
+                            <motion.div
+                              key={event.batchId || event.ids?.[0] || index}
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.3, delay: index * 0.05 }}
+                              whileHover={{ scale: 1.01 }}
+                            >
+                              <Card className="border border-borderSoft rounded-xl hover:border-brand/30 transition-colors">
+                                <CardContent className="p-4">
+                                  <div className="font-semibold text-foreground text-sm mb-1">{event.eventName}</div>
+                                  <div className="text-xs text-primary font-medium mt-0.5 mb-2">{event.clubName}</div>
+                                  <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
+                                    <Clock size={12} className="text-primary/60 mt-0.5" />
+                                    <span>{event.startTime} - {event.endTime}</span>
+                                  </div>
+                                  <div className="mt-1.5 flex items-start gap-2 text-xs text-muted-foreground">
+                                    <MapPin size={12} className="text-primary/60 mt-0.5" />
+                                    <span>{event.venueName}</span>
+                                  </div>
+                                  {event.status === 'partial' && (
+                                    <div className="mt-2">
+                                      <Badge variant="warning" className="text-[10px]">PARTIAL APPROVAL</Badge>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground text-sm">
+                            No events scheduled for this day.
+                          </div>
+                        );
+                      })()
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -263,9 +308,9 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/40 overflow-y-auto max-h-[400px]">
-                {myEvents.map((event, index) => (
+                {groupBookings(myEvents, venues).map((event, index) => (
                   <motion.div
-                    key={event.id}
+                    key={event.batchId || event.ids?.[0] || index}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -278,7 +323,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
                       <MapPin size={12} />
-                      {getVenueName(event.venueId)}
+                      {event.venueName}
                     </div>
                     <div className="mt-2 flex items-center gap-3">
                       {event.eventType && (
@@ -298,11 +343,12 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                         variant={
                           event.status === 'approved' ? 'success' :
                             event.status === 'pending' ? 'pending' :
-                              'destructive'
+                              event.status === 'partial' ? 'warning' :
+                                'destructive'
                         }
                         className="text-[10px]"
                       >
-                        <span>{event.status}</span>
+                        <span>{event.status === 'partial' ? 'Partially Approved' : event.status}</span>
                       </Badge>
                     </div>
                   </motion.div>
@@ -357,8 +403,13 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <MapPin size={12} className="text-primary/60 shrink-0" />
-                            <span>{getVenueName(event.venueId)}</span>
+                            <span>{event.venueName}</span>
                           </div>
+                          {event.status === 'partial' && (
+                            <div className="mt-2">
+                              <Badge variant="warning" className="text-[10px]">PARTIALLY APPROVED</Badge>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

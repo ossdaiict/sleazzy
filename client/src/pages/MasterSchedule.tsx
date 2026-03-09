@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { apiRequest, ApiBooking, mapBooking, groupBookings } from '../lib/api';
+import { apiRequest, ApiBooking, ApiVenue, mapBooking, groupBookings } from '../lib/api';
+import { getSocket, SOCKET_EVENTS } from '../lib/socket';
 import { getErrorMessage } from '../lib/errors';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
-import { Calendar, Clock, MapPin, Search, AlertTriangle, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, Eye, EyeOff, Pencil } from 'lucide-react';
+import { Calendar, Clock, MapPin, Search, AlertTriangle, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, EyeOff, Pencil } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -23,6 +24,7 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 
 const MasterSchedule: React.FC = () => {
     const [bookings, setBookings] = useState<GroupedBooking[]>([]);
+    const [venues, setVenues] = useState<ApiVenue[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -37,8 +39,12 @@ const MasterSchedule: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiRequest<ApiBooking[]>('/api/admin/bookings', { auth: true });
-            setBookings(groupBookings(data.map(mapBooking)));
+            const [bookingsData, venuesData] = await Promise.all([
+                apiRequest<ApiBooking[]>('/api/admin/bookings', { auth: true }),
+                apiRequest<ApiVenue[]>('/api/venues'),
+            ]);
+            setVenues(venuesData);
+            setBookings(groupBookings(bookingsData.map(mapBooking), venuesData));
         } catch (err) {
             console.error('Failed to fetch schedule:', err);
             setError(getErrorMessage(err, 'Failed to load schedule.'));
@@ -50,6 +56,24 @@ const MasterSchedule: React.FC = () => {
 
     useEffect(() => {
         fetchBookings();
+    }, [fetchBookings]);
+
+    useEffect(() => {
+        const socket = getSocket();
+
+        const handleRefresh = () => {
+            fetchBookings();
+        };
+
+        socket.on(SOCKET_EVENTS.EVENTS_UPDATED, handleRefresh);
+        socket.on(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleRefresh);
+        socket.on(SOCKET_EVENTS.BOOKING_NEW, handleRefresh);
+
+        return () => {
+            socket.off(SOCKET_EVENTS.EVENTS_UPDATED, handleRefresh);
+            socket.off(SOCKET_EVENTS.BOOKING_STATUS_CHANGED, handleRefresh);
+            socket.off(SOCKET_EVENTS.BOOKING_NEW, handleRefresh);
+        };
     }, [fetchBookings]);
 
     const venueNames = useMemo(() => {
@@ -77,7 +101,7 @@ const MasterSchedule: React.FC = () => {
     });
 
     const sortedBookings = useMemo(() => {
-        const sorted = [...filteredBookings].sort((a, b) => {
+        return [...filteredBookings].sort((a, b) => {
             let cmp = 0;
             if (sortField === 'date') {
                 cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
@@ -88,7 +112,6 @@ const MasterSchedule: React.FC = () => {
             }
             return sortDirection === 'asc' ? cmp : -cmp;
         });
-        return sorted;
     }, [filteredBookings, sortField, sortDirection]);
 
     const handleSortClick = (field: SortField) => {
@@ -100,11 +123,12 @@ const MasterSchedule: React.FC = () => {
         }
     };
 
-    const getStatusVariant = (status: string): "success" | "destructive" | "pending" | "default" => {
+    const getStatusVariant = (status: string): "success" | "destructive" | "pending" | "default" | "warning" => {
         switch (status) {
             case 'approved': return 'success';
             case 'rejected': return 'destructive';
             case 'pending': return 'pending';
+            case 'partial': return 'warning';
             default: return 'default';
         }
     };
@@ -116,25 +140,6 @@ const MasterSchedule: React.FC = () => {
             : <ArrowDown size={14} />;
     };
 
-    const toggleVisibility = async (groupBooking: GroupedBooking, currentValue: boolean) => {
-        // Optimistic update
-        setBookings(prev =>
-            prev.map(b => b.batchId === groupBooking.batchId || b.ids[0] === groupBooking.ids[0] ? { ...b, isPublic: !currentValue } : b)
-        );
-        try {
-            await Promise.all(groupBooking.ids.map(id => apiRequest(`/api/admin/bookings/${id}/visibility`, {
-                method: 'PATCH',
-                auth: true,
-                body: { is_public: !currentValue },
-            })));
-        } catch (err) {
-            console.error('Failed to toggle visibility:', err);
-            // Revert on failure
-            setBookings(prev =>
-                prev.map(b => b.batchId === groupBooking.batchId || b.ids[0] === groupBooking.ids[0] ? { ...b, isPublic: currentValue } : b)
-            );
-        }
-    };
 
     return (
         <>
@@ -149,8 +154,8 @@ const MasterSchedule: React.FC = () => {
                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">Master Schedule</h1>
                         <p className="text-textMuted text-sm sm:text-base mt-1">View all venue bookings across the campus.</p>
                     </div>
-                    <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-                        <div className="relative flex-1 sm:w-64">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto shrink-0">
+                        <div className="relative flex-1 sm:w-64 min-w-[200px]">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-textMuted pointer-events-none" />
                             <Input
                                 placeholder="Search events..."
@@ -159,47 +164,49 @@ const MasterSchedule: React.FC = () => {
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
-                        <div className="relative">
-                            <select
-                                value={selectedVenue}
-                                onChange={(e) => setSelectedVenue(e.target.value)}
-                                className="
-                                appearance-none rounded-xl
-                                px-3 pr-8 py-2 text-sm cursor-pointer
-                                bg-[var(--color-cardBg,#1e1e2e)] text-[var(--color-textPrimary,#e2e2e2)]
-                                border border-[var(--color-borderSoft,#2a2a3a)]
-                                focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand
-                                transition-all duration-200
-                                [&>option]:bg-[var(--color-cardBg,#1e1e2e)] [&>option]:text-[var(--color-textPrimary,#e2e2e2)]
-                            "
-                            >
-                                <option value="all">All Venues</option>
-                                {venueNames.map(name => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-textMuted pointer-events-none" />
-                        </div>
-                        <div className="relative">
-                            <select
-                                value={selectedClub}
-                                onChange={(e) => setSelectedClub(e.target.value)}
-                                className="
-                                appearance-none rounded-xl
-                                px-3 pr-8 py-2 text-sm cursor-pointer
-                                bg-[var(--card)] text-[var(--textPrimary)]
-                                border border-[var(--borderSoft)]
-                                focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand
-                                transition-all duration-200
-                                [&>option]:bg-[var(--popover)] [&>option]:text-[var(--popover-foreground)]
-                            "
-                            >
-                                <option value="all">All Clubs</option>
-                                {clubNames.map(name => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-textMuted pointer-events-none" />
+                        <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                            <div className="relative flex-1 sm:flex-none">
+                                <select
+                                    value={selectedVenue}
+                                    onChange={(e) => setSelectedVenue(e.target.value)}
+                                    className="
+                                    w-full appearance-none rounded-xl
+                                    px-3 pr-8 py-2 text-sm cursor-pointer
+                                    bg-[var(--card)] text-[var(--textPrimary)]
+                                    border border-[var(--borderSoft)]
+                                    focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand
+                                    transition-all duration-200
+                                    [&>option]:bg-[var(--popover)] [&>option]:text-[var(--popover-foreground)]
+                                "
+                                >
+                                    <option value="all">All Venues</option>
+                                    {venueNames.map(name => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-textMuted pointer-events-none" />
+                            </div>
+                            <div className="relative flex-1 sm:flex-none">
+                                <select
+                                    value={selectedClub}
+                                    onChange={(e) => setSelectedClub(e.target.value)}
+                                    className="
+                                    w-full appearance-none rounded-xl
+                                    px-3 pr-8 py-2 text-sm cursor-pointer
+                                    bg-[var(--card)] text-[var(--textPrimary)]
+                                    border border-[var(--borderSoft)]
+                                    focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand
+                                    transition-all duration-200
+                                    [&>option]:bg-[var(--popover)] [&>option]:text-[var(--popover-foreground)]
+                                "
+                                >
+                                    <option value="all">All Clubs</option>
+                                    {clubNames.map(name => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-textMuted pointer-events-none" />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -257,48 +264,39 @@ const MasterSchedule: React.FC = () => {
                             <div className="grid gap-4">
                                 {sortedBookings.map((booking, index) => (
                                     <motion.div
-                                        key={booking.id}
+                                        key={booking.batchId || booking.ids[0]}
                                         initial={{ opacity: 0, y: 16 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.03 }}
                                     >
-                                        <Card className="rounded-2xl rounded-xl overflow-hidden hover:border-brand/30 transition-colors">
+                                        <Card className="rounded-lg overflow-hidden border border-borderSoft bg-card hover:border-brand/50 transition-colors shadow-sm">
                                             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
                                                 <div className="flex-1">
                                                     <div className="flex items-start justify-between mb-2">
                                                         <div className="font-semibold text-lg">{booking.eventName}</div>
                                                         <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => toggleVisibility(booking, booking.isPublic)}
-                                                                title={booking.isPublic ? 'Visible to public' : 'Hidden from public'}
-                                                                className={`
-                                                                p-1.5 rounded-lg transition-all duration-200 cursor-pointer
-                                                                ${booking.isPublic
-                                                                        ? 'text-success hover:bg-success/10'
-                                                                        : 'text-textMuted hover:bg-hoverSoft'
-                                                                    }
-                                                            `}
-                                                            >
-                                                                {booking.isPublic ? <Eye size={16} /> : <EyeOff size={16} />}
-                                                            </button>
                                                             <Badge variant={getStatusVariant(booking.status)}>
-                                                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                                                {booking.status === 'partial' ? 'Partial' : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                                                             </Badge>
                                                         </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-textMuted">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-textMuted">
                                                         <div className="flex items-center gap-2">
                                                             <MapPin size={14} />
                                                             <span>{booking.venueName}</span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <Calendar size={14} />
-                                                            <span>{new Date(booking.date).toLocaleDateString()}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Clock size={14} />
-                                                            <span>{booking.startTime} - {booking.endTime}</span>
+                                                            <span>
+                                                                {booking.endDate && new Date(booking.date).toDateString() !== new Date(booking.endDate).toDateString() ? (
+                                                                    <>
+                                                                        {new Date(booking.date).toLocaleDateString()} {booking.startTime} - {new Date(booking.endDate).toLocaleDateString()} {booking.endTime}
+                                                                    </>
+                                                                ) : (
+                                                                    <>{new Date(booking.date).toLocaleDateString()} | {booking.startTime} - {booking.endTime}</>
+                                                                )}
+                                                            </span>
                                                         </div>
                                                     </div>
 

@@ -45,7 +45,7 @@ const NotificationPanel: React.FC = () => {
 
     const fetchUnreadCount = useCallback(async () => {
         try {
-            const data = await apiRequest<{ count: number }>('/api/admin/notifications/unread-count', { auth: true });
+            const data = await apiRequest<{ count: number }>('/api/notifications/unread-count', { auth: true });
             setUnreadCount(data.count);
         } catch {
             // silently fail
@@ -55,7 +55,7 @@ const NotificationPanel: React.FC = () => {
     const fetchNotifications = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await apiRequest<Notification[]>('/api/admin/notifications', { auth: true });
+            const data = await apiRequest<Notification[]>('/api/notifications', { auth: true });
             setNotifications(data);
             setUnreadCount(data.filter((n) => !n.is_read).length);
         } catch {
@@ -96,7 +96,7 @@ const NotificationPanel: React.FC = () => {
         );
         setUnreadCount((c) => Math.max(0, c - 1));
         try {
-            await apiRequest(`/api/admin/notifications/${id}/read`, { method: 'PATCH', auth: true });
+            await apiRequest(`/api/notifications/${id}/read`, { method: 'PATCH', auth: true });
         } catch {
             // revert on failure
             fetchNotifications();
@@ -107,7 +107,7 @@ const NotificationPanel: React.FC = () => {
         setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
         setUnreadCount(0);
         try {
-            await apiRequest('/api/admin/notifications/read-all', { method: 'PATCH', auth: true });
+            await apiRequest('/api/notifications/read-all', { method: 'PATCH', auth: true });
         } catch {
             fetchNotifications();
         }

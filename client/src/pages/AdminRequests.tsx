@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Search, Filter, Clock, Calendar, Check, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Search, Filter, Clock, Calendar, Check, X, AlertTriangle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { apiRequest, mapBooking, groupBookings, type ApiBooking, type ApiVenue } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { toastError, toastSuccess } from '../lib/toast';
@@ -13,6 +14,8 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { getSocket } from '../lib/socket';
+import { toast } from 'sonner';
 
 const AdminRequests: React.FC = () => {
   const [requests, setRequests] = useState<GroupedBooking[]>([]);
@@ -45,6 +48,34 @@ const AdminRequests: React.FC = () => {
     fetchRequests();
   }, [fetchRequests]);
 
+  // Socket.io: join admin room for real-time new booking alerts
+  React.useEffect(() => {
+    const socket = getSocket();
+    socket.emit('join:admin');
+
+    const handleBookingNew = (payload: { eventName: string; clubName: string; venueNames: string }) => {
+      toast.message('📋 New Booking Request', {
+        description: `${payload.clubName} → "${payload.eventName}" at ${payload.venueNames}`,
+        action: { label: 'Refresh', onClick: fetchRequests },
+      });
+      fetchRequests();
+    };
+
+    const handleEventsUpdated = () => {
+      fetchRequests();
+    };
+
+    socket.on('booking:new', handleBookingNew);
+    socket.on('events:updated', handleEventsUpdated);
+    socket.on('booking:status_changed', handleEventsUpdated);
+
+    return () => {
+      socket.off('booking:new', handleBookingNew);
+      socket.off('events:updated', handleEventsUpdated);
+      socket.off('booking:status_changed', handleEventsUpdated);
+    };
+  }, [fetchRequests]);
+
   const handleAction = async (ids: string[], action: 'approved' | 'rejected') => {
     try {
       await Promise.all(ids.map(id => apiRequest(`/api/admin/bookings/${id}/status`, {
@@ -65,8 +96,8 @@ const AdminRequests: React.FC = () => {
 
   const filteredRequests = requests.filter(req => {
     const matchesTab = activeTab === 'pending'
-      ? req.status === 'pending'
-      : req.status !== 'pending';
+      ? (req.status === 'pending' || (req.status === 'partial' && req.bookings.some(b => b.status === 'pending')))
+      : (req.status !== 'pending' && !(req.status === 'partial' && req.bookings.some(b => b.status === 'pending')));
 
     const matchesSearch =
       req.clubName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -116,10 +147,10 @@ const AdminRequests: React.FC = () => {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'history')} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-hoverSoft border-borderSoft rounded-xl p-1">
           <TabsTrigger value="pending" className="data-[state=active]:bg-background">
-            Pending Review ({requests.filter(r => r.status === 'pending').length})
+            Pending Review ({requests.reduce((acc, req) => acc + req.bookings.filter(b => b.status === 'pending').length, 0)})
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-background">
-            History
+            History ({requests.filter(req => req.status !== 'pending' && !req.bookings.some(b => b.status === 'pending')).length})
           </TabsTrigger>
         </TabsList>
 
@@ -145,77 +176,14 @@ const AdminRequests: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-border/40">
                     {filteredRequests.map((req, index) => (
-                      <motion.tr
+                      <AdminRequestRow
                         key={req.batchId || req.ids[0]}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="hover:bg-hoverSoft transition-colors"
-                      >
-                        <td className="px-4 sm:px-6 py-4">
-                          <div className="font-semibold text-textPrimary">{req.eventName}</div>
-                          <div className="text-xs text-textMuted mt-0.5">{req.clubName}</div>
-                          <div className="text-xs text-textMuted mt-1 sm:hidden">
-                            <div className="flex items-center gap-1">
-                              <Clock size={12} /> {req.startTime} - {req.endTime}
-                            </div>
-                            <div>{req.venueName || req.venueIds.map(getVenueName).join(', ')}</div>
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
-                          <div className="flex items-center gap-1.5 text-textPrimary">
-                            {req.venueName || req.venueIds.map(getVenueName).join(', ')}
-                          </div>
-                          <div className="text-xs text-textMuted mt-0.5 flex items-center gap-1">
-                            <Clock size={12} /> {req.startTime} - {req.endTime}
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar size={14} className="text-textMuted" />
-                            {new Date(req.date).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-4">
-                          <Badge
-                            variant={
-                              req.status === 'approved' ? 'success' :
-                                req.status === 'rejected' ? 'destructive' :
-                                  'pending'
-                            }
-                          >
-                            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 sm:px-6 py-4 text-right">
-                          {req.status === 'pending' ? (
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleAction(req.ids, 'rejected')}
-                                className="text-textMuted hover:text-error"
-                                title="Reject"
-                              >
-                                <X size={18} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleAction(req.ids, 'approved')}
-                                className="text-primary hover:text-primary/80"
-                                title="Approve"
-                              >
-                                <Check size={18} />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-textMuted italic">
-                              Processed
-                            </div>
-                          )}
-                        </td>
-                      </motion.tr>
+                        req={req}
+                        index={index}
+                        venues={venues}
+                        handleAction={handleAction}
+                        getVenueName={getVenueName}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -233,6 +201,178 @@ const AdminRequests: React.FC = () => {
         </TabsContent>
       </Tabs>
     </motion.div>
+  );
+};
+
+interface AdminRequestRowProps {
+  req: GroupedBooking;
+  index: number;
+  venues: ApiVenue[];
+  handleAction: (ids: string[], action: 'approved' | 'rejected') => Promise<void>;
+  getVenueName: (id: string) => string;
+}
+
+const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, handleAction, getVenueName }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isMultiVenue = req.bookings.length > 1;
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'approved': return 'success';
+      case 'rejected': return 'destructive';
+      case 'partial': return 'warning';
+      default: return 'pending';
+    }
+  };
+
+  return (
+    <>
+      <motion.tr
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.05 }}
+        className={cn(
+          "hover:bg-hoverSoft transition-colors cursor-pointer",
+          isExpanded && "bg-hoverSoft/50"
+        )}
+        onClick={() => isMultiVenue && setIsExpanded(!isExpanded)}
+      >
+        <td className="px-4 sm:px-6 py-4">
+          <div className="flex items-center gap-2">
+            {isMultiVenue && (
+              <div className="text-textMuted">
+                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </div>
+            )}
+            <div>
+              <div className="font-semibold text-textPrimary">{req.eventName}</div>
+              <div className="text-xs text-textMuted mt-0.5">{req.clubName}</div>
+              <div className="text-xs text-textMuted mt-1 sm:hidden">
+                <div className="flex items-center gap-1">
+                  <Clock size={12} /> {req.startTime} - {req.endTime}
+                </div>
+                <div>{req.venueName}</div>
+              </div>
+            </div>
+          </div>
+        </td>
+        <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
+          <div className="flex items-center gap-1.5 text-textPrimary">
+            {req.venueName}
+          </div>
+          <div className="text-xs text-textMuted mt-0.5 flex items-center gap-1">
+            <Clock size={12} /> {req.startTime} - {req.endTime}
+          </div>
+        </td>
+        <td className="px-4 sm:px-6 py-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <Calendar size={14} className="text-textMuted shrink-0" />
+              {req.endDate && new Date(req.date).toDateString() !== new Date(req.endDate).toDateString() ? (
+                <div className="flex flex-col text-xs space-y-0.5">
+                  <span className="whitespace-nowrap">{new Date(req.date).toLocaleDateString()} {req.startTime}</span>
+                  <span className="text-textMuted text-[10px]">to</span>
+                  <span className="whitespace-nowrap">{new Date(req.endDate).toLocaleDateString()} {req.endTime}</span>
+                </div>
+              ) : (
+                <span>{new Date(req.date).toLocaleDateString()}</span>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="px-4 sm:px-6 py-4">
+          <Badge variant={getStatusVariant(req.status)}>
+            {req.status === 'partial' ? 'Partial' : req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+          </Badge>
+        </td>
+        <td className="px-4 sm:px-6 py-4 text-right">
+          {req.bookings.every(b => b.status === "pending") ? (
+            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => { e.stopPropagation(); handleAction(req.ids, 'rejected'); }}
+                className="text-textMuted hover:text-error"
+                title="Reject All"
+              >
+                <XCircle size={18} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => { e.stopPropagation(); handleAction(req.ids, 'approved'); }}
+                className="text-primary hover:text-primary/80"
+                title="Approve All"
+              >
+                <CheckCircle size={18} />
+              </Button>
+            </div>
+          ) : req.bookings.some(b => b.status === "pending") ? (
+            <div className="text-xs font-semibold text-warning flex items-center justify-end gap-1">
+              Mixed Status
+              <ChevronDown size={14} className={cn("transition-transform", isExpanded && "rotate-180")} />
+            </div>
+          ) : (
+            <div className="text-xs text-textMuted italic flex justify-end">
+              Processed
+            </div>
+          )}
+        </td>
+      </motion.tr>
+
+      {/* Expanded view for multi-venue details */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.tr
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-primary/5"
+          >
+            <td colSpan={5} className="px-6 py-4">
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-textMuted uppercase tracking-wider mb-2">Individual Venue Statuses</div>
+                {req.bookings.map((booking) => (
+                  <div key={booking.id} className="flex items-center justify-between p-3 bg-background rounded-lg border border-borderSoft shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-sm">{getVenueName(booking.venueId)}</span>
+                        <span className="text-xs text-textMuted">{booking.startTime} - {booking.endTime}</span>
+                      </div>
+                      <Badge variant={booking.status === 'approved' ? 'success' : booking.status === 'rejected' ? 'destructive' : 'pending'} className="text-[10px] h-5">
+                        {booking.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    {booking.status === 'pending' && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAction([booking.id], 'rejected')}
+                          className="h-8 w-8 p-0 text-textMuted hover:text-error"
+                          title="Reject this venue"
+                        >
+                          <X size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAction([booking.id], 'approved')}
+                          className="h-8 w-8 p-0 text-primary hover:text-primary/80"
+                          title="Approve this venue"
+                        >
+                          <Check size={16} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+          </motion.tr>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

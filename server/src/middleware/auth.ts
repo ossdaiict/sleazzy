@@ -10,7 +10,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
     if (process.env.NODE_ENV !== 'production' && typeof mockEmail === 'string' && mockEmail) {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, role')
+        .select('id, role, email')
         .eq('email', mockEmail)
         .single();
 
@@ -22,6 +22,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
 
       req.user = {
         id: profile.id,
+        email: profile.email,
         role: profile.role,
       };
       return next();
@@ -44,7 +45,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
     // Query profile with RLS bypassed (service role key automatically bypasses RLS)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, email')
       .eq('id', userData.user.id)
       .single();
 
@@ -60,6 +61,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
 
     req.user = {
       id: userData.user.id,
+      email: profile.email,
       role: profile.role,
     };
 

@@ -158,7 +158,7 @@ const AdminClubs: React.FC = () => {
                 </div>
             </div>
 
-            <Card className="border border-borderSoft rounded-xl overflow-hidden glass-card">
+            <Card className="border border-borderSoft rounded-lg overflow-hidden bg-card shadow-sm">
                 <div className="p-4 border-b border-borderSoft flex items-center bg-card/50">
                     <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textMuted h-4 w-4" />
@@ -213,7 +213,7 @@ const AdminClubs: React.FC = () => {
                                             </Badge>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-2">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
@@ -331,7 +331,7 @@ const AdminClubs: React.FC = () => {
                             </div>
                         ) : (
                             clubEvents.map(event => (
-                                <Card key={event.id} className="rounded-xl border border-borderSoft hover:border-brand/30 transition-colors shadow-sm">
+                                <Card key={event.id} className="rounded-lg bg-card border border-borderSoft hover:border-brand/50 transition-colors shadow-sm">
                                     <CardContent className="p-4">
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-semibold text-textPrimary leading-tight pr-4">{event.eventName}</h4>

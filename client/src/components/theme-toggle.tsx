@@ -48,7 +48,7 @@ export function ThemeToggle() {
         >
           <Sun className="mr-2 h-4 w-4" />
           Light
-          {resolvedTheme === "light" && <Check className="ml-auto h-4 w-4" />}
+          {theme === "light" && <Check className="ml-auto h-4 w-4" />}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme("dark")}
@@ -56,7 +56,7 @@ export function ThemeToggle() {
         >
           <Moon className="mr-2 h-4 w-4" />
           Dark
-          {resolvedTheme === "dark" && <Check className="ml-auto h-4 w-4" />}
+          {theme === "dark" && <Check className="ml-auto h-4 w-4" />}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme("system")}

@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GradientBackground } from '../components/gradient-background';
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -22,6 +21,8 @@ import NotificationPanel from '../components/NotificationPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { getSocket } from '../lib/socket';
+import { toast } from 'sonner';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -40,12 +41,37 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
+  // Global Notifications for Clubs
+  React.useEffect(() => {
+    if (user.role !== 'club') return;
+
+    const socket = getSocket();
+    const handleStatusChanged = (payload: { eventName: string; status: 'approved' | 'rejected' | 'deleted' }) => {
+      if (payload.status === 'approved') {
+        toast.success(`Booking Approved: ${payload.eventName}`, {
+          description: 'Your request has been officially confirmed.',
+          duration: 5000,
+        });
+      } else if (payload.status === 'rejected') {
+        toast.error(`Booking Rejected: ${payload.eventName}`, {
+          description: 'Your request was not approved by the admin.',
+          duration: 6000,
+        });
+      }
+    };
+
+    socket.on('booking:status_changed', handleStatusChanged);
+    return () => {
+      socket.off('booking:status_changed', handleStatusChanged);
+    };
+  }, [user]);
+
   const navClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-sm font-medium active:scale-[0.98] touch-manipulation relative overflow-hidden group",
+      "flex items-center gap-3 px-4 py-3 sm:py-3.5 rounded-r-lg transition-all duration-200 text-sm font-medium relative",
       isActive
-        ? "text-white shadow-lg shadow-brand/25 bg-gradient-to-r from-brand to-brandLink"
-        : "text-textMuted hover:text-textPrimary hover:bg-hoverSoft"
+        ? "text-brand bg-brand/5 border-l-[3px] border-brand font-semibold"
+        : "text-textMuted hover:text-textPrimary hover:bg-hoverSoft border-l-[3px] border-transparent"
     );
 
   const renderNavLinks = () => {
@@ -101,11 +127,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex bg-transparent relative selection:bg-brand selection:text-white">
-      <GradientBackground />
-      {/* Sidebar - Desktop (Floating Style) */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 fixed h-full z-10 p-4">
-        <div className="flex flex-col h-full glass-card border-[0.5px] border-white/20 dark:border-white/10 flex-1 overflow-hidden backdrop-blur-3xl bg-white/50 dark:bg-black/40">
+    <div className="min-h-screen min-h-[100dvh] flex bg-bgMain relative">
+      {/* Sidebar - Desktop (Fixed Tech Style) */}
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 fixed h-full z-10 border-r border-borderSoft bg-card">
+        <div className="flex flex-col h-full flex-1 overflow-hidden">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -114,7 +139,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           >
             <motion.div
               whileHover={{ scale: 1.05, rotate: 5 }}
-              className="w-10 h-10 bg-gradient-to-br from-brand to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand/20"
+              className="w-8 h-8 bg-brand rounded-md flex items-center justify-center text-bgMain font-bold text-lg shadow-sm"
             >
               S
             </motion.div>
@@ -137,8 +162,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             className="p-4 border-t border-borderSoft/50"
           >
             <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-hoverSoft/50 transition-colors cursor-pointer group">
-              <Avatar className="h-10 w-10 border-2 border-white dark:border-white/10 shrink-0 shadow-sm ring-2 ring-transparent group-hover:ring-brand/20 transition-all">
-                <AvatarFallback className="bg-gradient-to-br from-brand to-purple-600 text-white font-semibold text-sm">
+              <Avatar className="h-10 w-10 border border-borderSoft shrink-0 shadow-sm transition-all group-hover:border-brand">
+                <AvatarFallback className="bg-brand text-bgMain font-semibold text-sm">
                   {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -168,10 +193,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden shrink-0 h-10 w-10 rounded-xl active:scale-95 glass bg-white/50"
+              className="md:hidden shrink-0 h-9 w-9 rounded-md active:scale-95 border border-borderSoft bg-card hover:bg-hoverSoft flex items-center justify-center"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <Menu size={22} />
+              <Menu size={18} />
             </Button>
             <div className="hidden md:block">
               {/* Breadcrumb or simplified title could go here, or just keep it clean */}
@@ -182,25 +207,19 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="glass rounded-full px-1 py-1 shadow-sm">
+            <div className="rounded-md border border-borderSoft shadow-sm bg-card flex items-center justify-center">
               <ThemeToggle />
             </div>
 
-            {user.role === 'admin' ? (
-              <NotificationPanel />
-            ) : (
-              <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full glass hover:bg-white/60 dark:hover:bg-black/40 transition-all">
-                <Bell size={20} className="text-textSecondary" />
-              </Button>
-            )}
+            <NotificationPanel />
 
             <Button
               variant="ghost"
               size="sm"
               onClick={onLogout}
-              className="hidden sm:flex items-center gap-2 text-textMuted hover:text-error hover:bg-error/10 rounded-full h-10 px-4 font-medium transition-all"
+              className="hidden sm:flex items-center gap-2 text-textMuted hover:text-error rounded-md h-9 px-3 font-medium transition-all shadow-sm border border-borderSoft bg-card"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
               <span>Logout</span>
             </Button>
           </div>
@@ -225,11 +244,11 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[min(85vw,320px)] sm:w-72 p-0 flex flex-col glass-dark border-r border-white/10"
+          className="w-[min(85vw,320px)] sm:w-72 p-0 flex flex-col bg-card border-r border-borderSoft"
         >
-          <SheetHeader className="p-5 sm:p-6 border-b border-white/10">
+          <SheetHeader className="p-5 sm:p-6 border-b border-borderSoft">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand/20">
+              <div className="w-8 h-8 bg-brand rounded-md flex items-center justify-center text-bgMain font-bold text-lg shadow-sm">
                 S
               </div>
               <SheetTitle className="text-xl font-bold text-textPrimary">Sleazzy</SheetTitle>
@@ -240,10 +259,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             {renderNavLinks()}
           </nav>
 
-          <div className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
-              <Avatar className="h-10 w-10 border border-white/10 shrink-0">
-                <AvatarFallback className="bg-brand/10 text-brand font-semibold text-sm">
+          <div className="p-4 border-t border-borderSoft">
+            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-hoverSoft transition-colors">
+              <Avatar className="h-10 w-10 border border-borderSoft shrink-0">
+                <AvatarFallback className="bg-brand text-bgMain font-semibold text-sm">
                   {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
