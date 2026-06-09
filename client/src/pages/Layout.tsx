@@ -34,6 +34,7 @@ const clubLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/book', label: 'Book Slot', icon: CalendarPlus },
   { to: '/my-bookings', label: 'My Bookings', icon: CalendarDays },
+  { to: '/members', label: 'Members', icon: Users },
   { to: '/policy', label: 'Policy', icon: FileText },
 ];
 

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p .",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "migrate": "ts-node migrate.ts",
+    "seed": "ts-node seed.ts"
   },
   "dependencies": {
     "@emailjs/nodejs": "^5.0.2",

@@ -13,6 +13,7 @@ import bookingsRoutes from './routes/bookings';
 import adminRoutes from './routes/admin';
 import notificationRoutes from './routes/notifications';
 import authRoutes from './routes/auth';
+import clubMembersRoutes from './routes/clubMembers';
 
 // 1. Swap Supabase for your new Neon DB Pool
 import { db } from './db'; 
@@ -21,7 +22,16 @@ const app = express();
 const httpServer = createServer(app);
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:3005', 'https://sleazzy.gdgdau.cloud'],
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://localhost:3005',
+    'http://localhost:3006',
+    'http://127.0.0.1:3005',
+    'http://127.0.0.1:3006',
+    'https://sleazzy.gdgdau.cloud',
+  ],
   credentials: true,
 }));
 app.use(express.json());
@@ -213,6 +223,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api', bookingsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/club-members', clubMembersRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 

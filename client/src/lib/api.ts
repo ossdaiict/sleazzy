@@ -9,9 +9,11 @@ type ApiOptions = {
 };
 
 const getApiBaseUrl = () => {
-  // Checks Vite env vars first. If missing, assumes local Express dev server on port 4000.
   const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-  return (envUrl || 'http://127.0.0.1:3000').replace(/\/$/, '');
+  if (envUrl) return envUrl.replace(/\/$/, '');
+  // In dev, use Vite proxy (same origin) to avoid CORS issues when port changes
+  if (import.meta.env.DEV) return '';
+  return 'http://127.0.0.1:3000';
 };
 
 const getJwtToken = () => {

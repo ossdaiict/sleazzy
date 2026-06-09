@@ -208,7 +208,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             <Input
                               type="email"
                               className="pl-11 h-11 rounded-xl"
-                              placeholder="name@university.edu"
+                              placeholder="club_name@dau.ac.in"
                               {...field}
                             />
                           </div>

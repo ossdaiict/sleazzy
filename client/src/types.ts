@@ -17,10 +17,25 @@ export interface Club {
 }
 
 export interface User {
+  id?: string;
   email: string;
   name: string; // Display name (e.g., "Programming Club" or "Sleazzy Admin")
   role: Role;
   group?: ClubGroupType; // Optional, for clubs
+  clubId?: string;
+}
+
+export interface ClubMember {
+  id: string;
+  club_id: string;
+  full_name: string;
+  roll_number: string | null;
+  email: string | null;
+  designation: string | null;
+  phone: string | null;
+  is_core_member: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type EventType = 'co_curricular' | 'open_all' | 'closed_club';

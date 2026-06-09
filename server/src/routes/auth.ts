@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import authMiddleware from '../middleware/auth';
+import { isOfficialCommitteeEmail, OFFICIAL_EMAIL_DOMAIN } from '../constants/officialEmails';
 
 const router = express.Router();
 
@@ -17,6 +18,12 @@ router.post('/register', async (req, res) => {
 
     if (!providedUserId && !password) {
         return res.status(400).json({ error: 'Password is required for new accounts' });
+    }
+
+    if (!isOfficialCommitteeEmail(email)) {
+        return res.status(400).json({
+            error: `Club accounts must use an official committee email ending with ${OFFICIAL_EMAIL_DOMAIN}`,
+        });
     }
 
     try {
@@ -158,6 +165,7 @@ router.get('/profile', async (req, res) => {
             name: clubData ? clubData.name : profile.full_name,
             role: profile.role,
             group: clubData ? clubData.group_category : undefined,
+            clubId: clubData ? clubData.id : undefined,
         };
 
         return res.json(responseData);

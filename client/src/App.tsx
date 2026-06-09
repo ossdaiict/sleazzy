@@ -10,6 +10,7 @@ import AdminRequests from './pages/AdminRequests';
 import MasterSchedule from './pages/MasterSchedule';
 import PolicyPage from './pages/PolicyPage';
 import MyBookings from './pages/MyBookings';
+import ClubMembers from './pages/ClubMembers';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import { User } from './types';
@@ -175,6 +176,7 @@ const App: React.FC = () => {
 
             <Route path="/book" element={<BookSlot currentUser={user} />} />
             <Route path="/my-bookings" element={<MyBookings />} />
+            <Route path="/members" element={<ClubMembers />} />
             <Route path="/policy" element={<PolicyPage />} />
 
             <Route path="/admin/requests" element={<AdminRequests />} />

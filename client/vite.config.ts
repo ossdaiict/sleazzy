@@ -12,6 +12,12 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3005,
         host: 'localhost',
+        proxy: {
+          '/api': {
+            target: 'http://localhost:3000',
+            changeOrigin: true,
+          },
+        },
       },
       plugins: [react(), tailwindcss()],
       define: {
