@@ -384,7 +384,7 @@ router.get('/club-members/all', async (_req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT cm.id, cm.club_id, cm.full_name, cm.roll_number, cm.email, cm.designation, cm.phone,
-             cm.tenure_start_date, cm.tenure_end_date, cm.tenure_end_reason, c.name as club_name
+             cm.tenure_start_date, cm.tenure_end_date, cm.tenure_end_reason, cm.promotion_history, c.name as club_name
       FROM club_members cm
       JOIN clubs c ON cm.club_id = c.id
       ORDER BY c.name ASC,

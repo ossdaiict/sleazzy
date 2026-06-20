@@ -47,6 +47,7 @@ export function exportRosterToExcel(members: ExportClubMember[]) {
       const statusText = isPast ? 'Past / Resigned' : 'Active';
       const sDate = m.tenure_start_date ? new Date(m.tenure_start_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
       const eDate = m.tenure_end_date ? new Date(m.tenure_end_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Present';
+      const historyText = m.promotion_history ? m.promotion_history.replace(/\n/g, ' | ') : 'No history';
 
       return {
         'Full Name': m.full_name,
@@ -57,23 +58,35 @@ export function exportRosterToExcel(members: ExportClubMember[]) {
         'Tenure Start': sDate,
         'Tenure End': eDate,
         'Departure Reason': m.tenure_end_reason ?? 'N/A',
+        'Designation History': historyText,
         'Status': statusText
       };
     });
 
     const ws = XLSX.utils.json_to_sheet(sheetData);
 
+    // Calculate dynamic column width for Designation History to fit content nicely
+    let maxHistoryLen = 30;
+    clubMembers.forEach(m => {
+      const hText = m.promotion_history ? m.promotion_history.replace(/\n/g, ' | ') : 'No history';
+      if (hText.length > maxHistoryLen) {
+        maxHistoryLen = hText.length;
+      }
+    });
+    const historyColWidth = Math.min(Math.max(maxHistoryLen + 6, 30), 150);
+
     // Set custom column widths (in characters)
     ws['!cols'] = [
-      { wch: 22 }, // Full Name
-      { wch: 18 }, // Designation
-      { wch: 14 }, // Roll Number
-      { wch: 28 }, // Email
-      { wch: 16 }, // Phone Number
-      { wch: 16 }, // Tenure Start
-      { wch: 16 }, // Tenure End
-      { wch: 20 }, // Departure Reason
-      { wch: 18 }  // Status
+      { wch: 25 }, // Full Name
+      { wch: 20 }, // Designation
+      { wch: 15 }, // Roll Number
+      { wch: 30 }, // Email
+      { wch: 18 }, // Phone Number
+      { wch: 18 }, // Tenure Start
+      { wch: 18 }, // Tenure End
+      { wch: 22 }, // Departure Reason
+      { wch: historyColWidth }, // Designation History
+      { wch: 20 }  // Status
     ];
 
     const sheetName = getUniqueSheetName(clubName, seenSheets);

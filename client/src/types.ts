@@ -37,6 +37,7 @@ export interface ClubMember {
   tenure_start_date: string | null;
   tenure_end_date: string | null;
   tenure_end_reason: string | null;
+  promotion_history: string | null;
   created_at: string;
   updated_at: string;
 }

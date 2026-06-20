@@ -12,7 +12,7 @@ const clubOnly = (req: express.Request, res: express.Response, next: express.Nex
   return next();
 };
 
-const MEMBER_EDITABLE_FIELDS = ['full_name', 'roll_number', 'email', 'designation', 'phone', 'tenure_start_date', 'tenure_end_date', 'tenure_end_reason'] as const;
+const MEMBER_EDITABLE_FIELDS = ['full_name', 'roll_number', 'email', 'designation', 'phone', 'tenure_start_date', 'tenure_end_date', 'tenure_end_reason', 'promotion_history'] as const;
 
 /** Get public core members of all clubs */
 router.get('/public', async (req, res) => {
@@ -61,7 +61,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const { rows } = await db.query(
       `SELECT id, club_id, full_name, roll_number, email, designation, phone,
-              is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, created_at, updated_at
+              is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, promotion_history, created_at, updated_at
        FROM club_members
        WHERE club_id = $1
        ORDER BY CASE 
@@ -106,10 +106,10 @@ router.post('/', authMiddleware, clubOnly, async (req, res) => {
     }
 
     const { rows } = await db.query(
-      `INSERT INTO club_members (club_id, full_name, roll_number, email, designation, phone, is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO club_members (club_id, full_name, roll_number, email, designation, phone, is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, promotion_history)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, club_id, full_name, roll_number, email, designation, phone,
-                 is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, created_at, updated_at`,
+                 is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, promotion_history, created_at, updated_at`,
       [
         club.id,
         full_name.trim(),
@@ -121,6 +121,7 @@ router.post('/', authMiddleware, clubOnly, async (req, res) => {
         tenure_start_date && tenure_start_date.trim() ? tenure_start_date.trim() : null,
         tenure_end_date && tenure_end_date.trim() ? tenure_end_date.trim() : null,
         tenure_end_reason && tenure_end_reason.trim() ? tenure_end_reason.trim() : null,
+        null,
       ]
     );
 
@@ -150,6 +151,29 @@ router.patch('/:id', authMiddleware, clubOnly, async (req, res) => {
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
+    }
+
+    if ('designation' in req.body) {
+      const newDesignation = (req.body.designation ?? 'Core').trim();
+      const oldDesignation = member.designation || 'Core';
+      if (newDesignation !== oldDesignation) {
+        const rankMap: Record<string, number> = { 'Convenor': 3, 'Dy. Convener': 2, 'Core': 1 };
+        const oldRank = rankMap[oldDesignation] ?? 0;
+        const newRank = rankMap[newDesignation] ?? 0;
+        
+        let action = 'Changed';
+        if (newRank > oldRank) {
+          action = 'Promoted';
+        } else if (newRank < oldRank) {
+          action = 'Demoted';
+        }
+        
+        const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        const entry = `${todayStr}: ${action} from "${oldDesignation}" to "${newDesignation}"`;
+        req.body.promotion_history = member.promotion_history 
+          ? `${member.promotion_history}\n${entry}` 
+          : entry;
+      }
     }
 
     const updates: string[] = [];
@@ -194,7 +218,7 @@ router.patch('/:id', authMiddleware, clubOnly, async (req, res) => {
        SET ${updates.join(', ')}
        WHERE id = $${paramIndex} AND club_id = $${paramIndex + 1}
        RETURNING id, club_id, full_name, roll_number, email, designation, phone,
-                 is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, created_at, updated_at`,
+                 is_core_member, tenure_start_date, tenure_end_date, tenure_end_reason, promotion_history, created_at, updated_at`,
       values
     );
 
