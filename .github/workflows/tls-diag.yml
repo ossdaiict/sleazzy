@@ -1,0 +1,41 @@
+name: TLS Diagnostic
+
+on:
+  push:
+    branches:
+      - ops/tls-fix
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect reverse proxy / TLS on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set +e
+            echo "===== OS ====="
+            cat /etc/os-release 2>/dev/null | head -3
+            echo "===== LISTENERS :80/:443 ====="
+            ss -tlnp 2>/dev/null | grep -E ':80|:443'
+            echo "===== DOCKER PS ====="
+            docker ps --format '{{.Names}} | {{.Image}} | {{.Ports}}' 2>/dev/null
+            echo "===== NGINX ====="
+            which nginx && nginx -v 2>&1
+            ls -la /etc/nginx/sites-enabled/ 2>/dev/null
+            echo "--- nginx confs ---"
+            grep -rEl 'server_name|gdgdau' /etc/nginx/ 2>/dev/null
+            echo "===== CADDY ====="
+            which caddy && caddy version 2>&1
+            echo "--- Caddyfile ---"
+            cat /etc/caddy/Caddyfile 2>/dev/null
+            echo "===== TRAEFIK ====="
+            docker ps 2>/dev/null | grep -i traefik
+            echo "===== CERTBOT ====="
+            which certbot && certbot certificates 2>/dev/null || echo "no certbot"
+            echo "===== DONE ====="
