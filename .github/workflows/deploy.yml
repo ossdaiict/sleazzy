@@ -1,4 +1,4 @@
-name: Build, Push to Docker Hub & Deploy to VPS
+name: build/ci
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to VPS via SSH
+      - name: deploy to VPS/cd
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
