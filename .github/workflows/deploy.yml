@@ -1,4 +1,4 @@
-name: Build, Push to Docker Hub & Deploy to VPS
+name: Deploy to VPS/cd
 
 on:
   push:
