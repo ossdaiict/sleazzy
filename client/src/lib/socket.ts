@@ -36,6 +36,23 @@ class SocketService {
     private connectionPromise: Promise<void> | null = null;
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
+    private knownBuildVersion: string | null = null;
+
+    // Reload the app when the server reports a build different from the one we
+    // first connected with (i.e. a new version was deployed while the tab was open).
+    private handleServerVersion(version: string) {
+        if (!version) return;
+
+        if (this.knownBuildVersion === null) {
+            this.knownBuildVersion = version;
+            return;
+        }
+
+        if (this.knownBuildVersion !== version) {
+            console.log('[Socket.io] New build detected, reloading…');
+            window.location.reload();
+        }
+    }
 
     private applyLatestAuthToken() {
         if (!this.socket) return;
@@ -86,6 +103,11 @@ class SocketService {
             });
 
             this.applyLatestAuthToken();
+
+            // Registered on the Socket instance, so it persists across reconnects.
+            this.socket.on(SOCKET_EVENTS.SERVER_VERSION, (version: string) => {
+                this.handleServerVersion(version);
+            });
 
             this.socket.on('connect', () => {
                 console.log('[Socket.io] Connected');
