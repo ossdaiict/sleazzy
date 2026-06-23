@@ -1,4 +1,4 @@
-name: build/ci
+name: CI/CD
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: deploy to VPS/cd
+      - name: Deploy to VPS(CD)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
