@@ -39,6 +39,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/sleazzy:${{ github.sha }}
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
+            BUILD_ID=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

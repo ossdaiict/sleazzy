@@ -57,6 +57,12 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => getCachedUser());
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Establish the socket on every load (even anonymous) so the build-version
+  // handshake can detect and recover from a stale, cached frontend bundle.
+  useEffect(() => {
+    getSocket();
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 

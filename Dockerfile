@@ -7,6 +7,11 @@ WORKDIR /build/client
 ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
 
+# Unique id for this build, baked into the client bundle. The server is given
+# the same id (see below) so the running app can detect a stale cached bundle.
+ARG BUILD_ID=
+ENV VITE_BUILD_ID=$BUILD_ID
+
 COPY client/package.json client/package-lock.json ./
 RUN npm ci
 COPY client/ ./
@@ -34,6 +39,11 @@ COPY --from=server-builder /build/server/node_modules ./server/node_modules
 
 # Frontend dist copied into app (served by Express)
 COPY --from=client-builder /build/client/dist ./client
+
+# Same build id the client was compiled with, so getBuildVersion() reports a
+# value the client can compare against (server.ts prefers BUILD_ID).
+ARG BUILD_ID=
+ENV BUILD_ID=$BUILD_ID
 
 ENV PORT=3006
 ENV CLIENT_DIST_DIR=/app/client
