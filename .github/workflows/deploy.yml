@@ -43,3 +43,37 @@ jobs:
             VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/sleazzy:latest"
+            echo "Pulling latest image: $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "Stopping and removing old container (if any)"
+            docker rm -f sleazzy 2>/dev/null || true
+
+            echo "Starting new container"
+            docker run -d \
+              --name sleazzy \
+              --restart unless-stopped \
+              -p 3006:3006 \
+              --env-file /root/sleazzy/.env \
+              "$IMAGE"
+
+            echo "Pruning old images"
+            docker image prune -f
+
+            echo "Deployment completed"
