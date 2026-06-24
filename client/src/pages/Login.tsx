@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +8,7 @@ import { User, Role, ClubGroupType } from '../types';
 import { apiRequest } from '../lib/api';
 import { toastSuccess } from '../lib/toast';
 import { getErrorMessage } from '../lib/errors';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { ThemeToggle } from '../components/theme-toggle';
 import { GradientBackground } from '../components/gradient-background';
@@ -52,6 +53,7 @@ const registrationSchema = loginSchema.extend({
 type LoginFormData = z.infer<typeof registrationSchema>;
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const navigate = useNavigate();
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState('');
 
@@ -206,8 +208,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <GradientBackground />
 
       {/* Theme toggle */}
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <ThemeToggle />
+      </div>
+
+      {/* Back to Home Button */}
+      <div className="absolute top-4 left-4 z-20">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="rounded-xl h-10 px-3 sm:px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft/80 transition-all flex items-center gap-1.5 border border-borderSoft bg-white/80 dark:bg-card/80 backdrop-blur"
+        >
+          <ArrowLeft size={16} />
+          <span>Back to Home</span>
+        </Button>
       </div>
 
       <motion.div
@@ -373,23 +387,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </form>
               </Form>
 
-              <div className="text-center pt-2">
-                <p className="text-sm text-textMuted">
-                  {isRegistering ? 'Already have an account?' : "Don't have an account?"}
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={() => {
-                      setIsRegistering(!isRegistering);
-                      setError('');
-                      form.reset();
-                    }}
-                    className="ml-1 h-auto p-0 text-brand font-semibold hover:text-brandLink hover:underline"
-                  >
-                    {isRegistering ? 'Sign In' : 'Register Club'}
-                  </Button>
-                </p>
-              </div>
+              {/* Registration toggle removed: admin-only now */}
             </div>
           </div>
         </div>

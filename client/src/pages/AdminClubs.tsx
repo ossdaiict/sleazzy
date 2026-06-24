@@ -10,7 +10,7 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Skeleton } from '../components/ui/skeleton';
-import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download } from 'lucide-react';
+import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { Booking } from '../types';
@@ -36,6 +36,11 @@ const AdminClubs: React.FC = () => {
     const [editFormData, setEditFormData] = useState({ name: '', groupCategory: '' });
     const [isSaving, setIsSaving] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+
+    // Add State
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [addFormData, setAddFormData] = useState({ name: '', email: '', password: '', groupCategory: 'A' });
+    const [isAdding, setIsAdding] = useState(false);
 
     // Delete State
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -92,6 +97,32 @@ const AdminClubs: React.FC = () => {
     useEffect(() => {
         fetchClubs();
     }, []);
+
+    const saveAdd = async () => {
+        if (!addFormData.name.trim() || !addFormData.email.trim() || !addFormData.password.trim()) {
+            return;
+        }
+        setIsAdding(true);
+        try {
+            await apiRequest('/api/auth/register', {
+                method: 'POST',
+                body: {
+                    clubName: addFormData.name,
+                    email: addFormData.email,
+                    password: addFormData.password,
+                    groupCategory: addFormData.groupCategory,
+                },
+            });
+            toastSuccess('Club added successfully');
+            setAddDialogOpen(false);
+            setAddFormData({ name: '', email: '', password: '', groupCategory: 'A' });
+            fetchClubs();
+        } catch (err) {
+            toastError(err, 'Failed to add club');
+        } finally {
+            setIsAdding(false);
+        }
+    };
 
     const handleEditClick = (club: ApiClub) => {
         setEditingClub(club);
@@ -189,11 +220,18 @@ const AdminClubs: React.FC = () => {
                     <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tighter">Manage Clubs</h2>
                     <p className="text-textSecondary mt-2 text-base font-medium">View, edit, or remove clubs from the system.</p>
                 </div>
-                <div className="flex items-center gap-2 self-start md:self-end">
+                <div className="flex items-center gap-2.5 self-start md:self-end">
+                    <Button
+                        onClick={() => setAddDialogOpen(true)}
+                        className="gap-1.5 rounded-xl h-10 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/10 hover:shadow-brand/20"
+                    >
+                        <Plus size={16} />
+                        Add Club
+                    </Button>
                     <Button
                         onClick={handleExportRoster}
                         disabled={isExporting}
-                        className="gap-2 rounded-xl h-10 font-semibold shadow-sm shadow-brand/15 bg-brand text-white hover:bg-brand/90"
+                        className="gap-2 rounded-xl h-10 font-semibold border border-borderSoft bg-card text-textSecondary hover:bg-hoverSoft shadow-sm"
                     >
                         <Download size={16} />
                         {isExporting ? 'Exporting...' : 'Export Roster (Excel)'}
@@ -317,6 +355,66 @@ const AdminClubs: React.FC = () => {
                     </table>
                 </div>
             </Card>
+
+            {/* Add Dialog */}
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Add New Club</DialogTitle>
+                        <DialogDescription>Create a new club account. The email must end with @dau.ac.in.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="add-name">Club Name</Label>
+                            <Input
+                                id="add-name"
+                                placeholder="e.g. AI Club"
+                                value={addFormData.name}
+                                onChange={e => setAddFormData({ ...addFormData, name: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="add-email">Login Email</Label>
+                            <Input
+                                id="add-email"
+                                type="email"
+                                placeholder="e.g. aiclub@dau.ac.in"
+                                value={addFormData.email}
+                                onChange={e => setAddFormData({ ...addFormData, email: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="add-password">Password</Label>
+                            <Input
+                                id="add-password"
+                                type="password"
+                                placeholder="Min 6 characters"
+                                value={addFormData.password}
+                                onChange={e => setAddFormData({ ...addFormData, password: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="add-category">Group Category</Label>
+                            <select
+                                id="add-category"
+                                className="flex h-10 w-full rounded-lg border border-borderSoft bg-transparent px-3 py-2 text-sm text-textPrimary focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand [&>option]:bg-popover"
+                                value={addFormData.groupCategory}
+                                onChange={e => setAddFormData({ ...addFormData, groupCategory: e.target.value })}
+                            >
+                                <option value="A">Group A (Academic/Tech)</option>
+                                <option value="B">Group B (Cultural)</option>
+                                <option value="C">Group C (Sports)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAddDialogOpen(false)} disabled={isAdding}>Cancel</Button>
+                        <Button onClick={saveAdd} disabled={isAdding || !addFormData.name.trim() || !addFormData.email.trim() || !addFormData.password.trim()}>
+                            {isAdding ? 'Adding...' : 'Add Club'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Edit Dialog */}
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

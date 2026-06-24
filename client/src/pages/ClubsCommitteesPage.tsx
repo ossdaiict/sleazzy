@@ -149,32 +149,41 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
         <div className="min-h-screen relative overflow-hidden bg-bgMain pb-16">
             {/* ====== Header ====== */}
             <header className="sticky top-0 z-30 bg-bgMain/80 backdrop-blur-xl border-b border-borderSoft/40">
-                <div className="flex items-center justify-between px-4 sm:px-6 py-3 max-w-7xl mx-auto">
-                    <div className="flex items-center gap-4">
-                        <Logo size="md" />
+                <div className="flex items-center justify-between px-3 sm:px-6 py-3 max-w-7xl mx-auto">
+                    {/* Left: Logo & Nav Links */}
+                    <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                        <div className="flex items-center gap-4 shrink-0">
+                            <Logo size="md" />
+                        </div>
+                        
+                        <div className="flex items-center gap-1 sm:gap-2">
+                            <Button
+                                variant="ghost"
+                                onClick={() => navigate('/')}
+                                className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-xs sm:text-sm"
+                            >
+                                Home
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => navigate('/clubs-committees')}
+                                className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-xs sm:text-sm"
+                            >
+                                <span className="hidden sm:inline">Clubs & Committees</span>
+                                <span className="sm:hidden">Clubs</span>
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-4">
-                        <Button
-                            variant="ghost"
-                            onClick={() => navigate('/')}
-                            className="rounded-xl h-10 px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all"
-                        >
-                            Home
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => navigate('/clubs-committees')}
-                            className="rounded-xl h-10 px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all"
-                        >
-                            Clubs & Committees
-                        </Button>
+                    {/* Right: Utilities */}
+                    <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
                         <ThemeToggle />
                         <Button
                             onClick={onGoToLogin}
-                            className="rounded-xl h-10 px-5 sm:px-6 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30"
+                            className="rounded-xl h-10 px-3 sm:px-6 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 gap-1 text-xs sm:text-sm"
                         >
-                            Sign In
+                            <span>Sign In</span>
+                            <ArrowRight size={14} className="hidden sm:inline" />
                         </Button>
                     </div>
                 </div>
