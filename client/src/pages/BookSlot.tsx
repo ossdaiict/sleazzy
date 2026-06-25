@@ -45,8 +45,6 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const [venues, setVenues] = useState<ApiVenue[]>([]);
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [formData, setFormData] = useState({
-    eventName: '',
-    eventType: 'closed_club' as EventType,
     expectedAttendees: '',
     clubName: '',
     date: '',
@@ -75,7 +73,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   });
 
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: '', date: '', venue: '' });
+  const [newEvent, setNewEvent] = useState({ name: '', startDate: '', startTime: '', endDate: '', endTime: '', venue: '' });
   const [isSavingEvent, setIsSavingEvent] = useState(false);
 
   const reloadEvents = async () => {
@@ -91,21 +89,28 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
   const handleCreateEvent = async () => {
     setIsSavingEvent(true);
     try {
+      const startDateTime = new Date(`${newEvent.startDate}T${newEvent.startTime || '00:00'}:00`).toISOString();
+      const endDateTime = new Date(`${newEvent.endDate || newEvent.startDate}T${newEvent.endTime || '23:59'}:00`).toISOString();
+
       const created = await apiRequest<{ id: string; name: string; date: string }>('/api/events', {
         method: 'POST',
         auth: true,
-        body: newEvent,
+        body: {
+          name: newEvent.name,
+          date: startDateTime,
+          end_date: endDateTime,
+          venue: newEvent.venue,
+        },
       });
       toastSuccess('Event registered successfully');
       setIsAddEventOpen(false);
-      setNewEvent({ name: '', date: '', venue: '' });
+      setNewEvent({ name: '', startDate: '', startTime: '', endDate: '', endTime: '', venue: '' });
       // Reload the events list and pre-fill/select the newly created event
       const updatedEvents = await reloadEvents();
       if (updatedEvents && created?.id) {
         setFormData(prev => ({
           ...prev,
           event_id: created.id,
-          eventName: created.name,
           date: created.date ? created.date.split('T')[0] : prev.date,
           endDate: created.date ? created.date.split('T')[0] : prev.endDate,
         }));
@@ -279,10 +284,10 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
     let warningMsg = '';
 
-    if (formData.eventType === 'co_curricular' && diffDays < 30) {
-      warningMsg = 'Co-curricular events must be booked at least 30 days in advance.';
-    } else if (formData.eventType === 'open_all' && diffDays < 20) {
-      warningMsg = 'Open-for-All events must be booked at least 20 days in advance.';
+    if (formData.eventType === 'co_curricular' && diffDays < 14) {
+      warningMsg = 'Co-curricular events must be booked at least 14 days in advance.';
+    } else if (formData.eventType === 'open_all' && diffDays < 7) {
+      warningMsg = 'Open-for-All events must be booked at least 7 days in advance.';
     } else if (formData.eventType === 'closed_club' && diffDays < 1) {
       warningMsg = 'Closed club events must be booked at least 1 day in advance.';
     }
@@ -408,7 +413,10 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
   // Co-curricular limit check
   useEffect(() => {
-    if (formData.eventType !== 'co_curricular' || !formData.clubName) {
+    const selectedEvent = events.find(e => e.id === formData.event_id);
+    const eventType = selectedEvent?.event_type;
+
+    if (eventType !== 'co_curricular' || !formData.clubName) {
       setWarnings(prev => ({ ...prev, coCurricularLimit: '' }));
       return;
     }
@@ -442,7 +450,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
     };
 
     checkLimit();
-  }, [formData.eventType, formData.clubName, clubs]);
+  }, [formData.event_id, formData.clubName, clubs, events]);
 
   const handleChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -500,8 +508,6 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
 
       // Clear the form
       setFormData({
-        eventName: '',
-        eventType: 'closed_club',
         expectedAttendees: '',
         clubName: currentUser.role === 'club' ? currentUser.name : '',
         date: '',
@@ -612,7 +618,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                       <div className="h-2 w-2 rounded-full bg-brand mt-2 shrink-0" />
                       <div>
                         <span className="font-semibold block text-textPrimary text-sm mb-1">Advance Notice</span>
-                        <p className="text-xs text-textSecondary leading-relaxed">Closed club: 1 day. Open: 20 days. Co-curricular: 30 days.</p>
+                        <p className="text-xs text-textSecondary leading-relaxed">Closed club: 1 day. Open: 7 days. Co-curricular: 14 days.</p>
                       </div>
                     </div>
                   </div>
@@ -738,18 +744,23 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                           Register Event
                         </Button>
                       </div>
-                      <Select value={formData.event_id || 'none'} onValueChange={(v) => handleChange('event_id', v === 'none' ? '' : v)}>
+                      <Select value={formData.event_id || ''} onValueChange={(v) => handleChange('event_id', v)}>
                         <SelectTrigger id="event_id" className="h-10 border-borderSoft hover:bg-hoverSoft/50 focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all rounded-xl">
                           <SelectValue placeholder={events.length > 0 ? "Select an Event..." : "No events registered yet."} />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="none" className="cursor-pointer">
-                            <span className="font-medium text-textMuted">None / Standalone Booking</span>
-                          </SelectItem>
-                          {events.map(e => (
-                            <SelectItem key={e.id} value={e.id} className="cursor-pointer">
-                              <span className="font-semibold">{e.name}</span> <span className="text-textMuted text-xs">({new Date(e.date).toLocaleDateString()})</span>
-                            </SelectItem>
+                          {events
+                            .filter(e => {
+                              const eventDate = new Date(e.dynamic_end_date || e.date);
+                              eventDate.setHours(0, 0, 0, 0);
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return eventDate >= today;
+                            })
+                            .map(e => (
+                              <SelectItem key={e.id} value={e.id} className="cursor-pointer">
+                                <span className="font-semibold">{e.name}</span> <span className="text-textMuted text-xs">({new Date(e.date).toLocaleDateString()})</span>
+                              </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -757,56 +768,22 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                   )}
 
                   <div className="space-y-2.5">
-                    <Label htmlFor="eventName" className="text-textSecondary font-semibold text-sm">Event Name *</Label>
-                    <Input
-                      id="eventName"
-                      value={formData.eventName}
-                      onChange={(e) => handleChange('eventName', e.target.value)}
-                      disabled={!!formData.event_id}
-                      placeholder="e.g. Hackathon Kickoff, Tech Summit..."
-                      className="h-10 bg-card border-borderSoft focus:border-brand focus:ring-1 focus:ring-brand text-base rounded-md font-medium shadow-sm transition-all disabled:opacity-75 disabled:bg-hoverSoft/10"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-2.5">
-                      <Label htmlFor="eventType" className="text-textSecondary font-semibold text-sm">Event Type *</Label>
-                      <Select value={formData.eventType} onValueChange={(v) => handleChange('eventType', v)}>
-                        <SelectTrigger id="eventType" className="h-12 border-borderSoft hover:bg-hoverSoft/50 focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all rounded-xl">
-                          <SelectValue placeholder="Select Type" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="closed_club" className="cursor-pointer">
-                            <span className="font-semibold">Closed Club Event</span>
-                          </SelectItem>
-                          <SelectItem value="open_all" className="cursor-pointer">
-                            <span className="font-semibold">Open-for-All</span>
-                          </SelectItem>
-                          <SelectItem value="co_curricular" className="cursor-pointer">
-                            <span className="font-semibold">Co-curricular</span>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      <Label htmlFor="expectedAttendees" className="text-textSecondary font-semibold text-sm">Expected Attendees *</Label>
-                      <Select value={formData.expectedAttendees} onValueChange={(v) => handleChange('expectedAttendees', v)}>
-                        <SelectTrigger className="h-12 border-borderSoft hover:bg-hoverSoft/50 focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all rounded-xl">
-                          <div className="flex items-center gap-2">
-                            <Users size={16} className="text-brand" />
-                            <SelectValue placeholder="Count" />
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="50">1-50 People</SelectItem>
-                          <SelectItem value="100">51-100 People</SelectItem>
-                          <SelectItem value="200">101-200 People</SelectItem>
-                          <SelectItem value="500">201-500 People</SelectItem>
-                          <SelectItem value="500+">500+ People</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <Label htmlFor="expectedAttendees" className="text-textSecondary font-semibold text-sm">Expected Attendees *</Label>
+                    <Select value={formData.expectedAttendees} onValueChange={(v) => handleChange('expectedAttendees', v)}>
+                      <SelectTrigger className="h-12 border-borderSoft hover:bg-hoverSoft/50 focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all rounded-xl">
+                        <div className="flex items-center gap-2">
+                          <Users size={16} className="text-brand" />
+                          <SelectValue placeholder="Count" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="50">1-50 People</SelectItem>
+                        <SelectItem value="100">51-100 People</SelectItem>
+                        <SelectItem value="200">101-200 People</SelectItem>
+                        <SelectItem value="500">201-500 People</SelectItem>
+                        <SelectItem value="500+">500+ People</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </section>
@@ -1192,15 +1169,49 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
                 className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="event-date-dialog" className="text-textSecondary">Date *</Label>
-              <Input
-                id="event-date-dialog"
-                type="date"
-                value={newEvent.date}
-                onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="event-sdate-dialog" className="text-textSecondary">Start Date *</Label>
+                <Input
+                  id="event-sdate-dialog"
+                  type="date"
+                  value={newEvent.startDate}
+                  onChange={e => setNewEvent({ ...newEvent, startDate: e.target.value })}
+                  className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event-stime-dialog" className="text-textSecondary">Start Time</Label>
+                <Input
+                  id="event-stime-dialog"
+                  type="time"
+                  value={newEvent.startTime}
+                  onChange={e => setNewEvent({ ...newEvent, startTime: e.target.value })}
+                  className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="event-edate-dialog" className="text-textSecondary">End Date</Label>
+                <Input
+                  id="event-edate-dialog"
+                  type="date"
+                  value={newEvent.endDate}
+                  onChange={e => setNewEvent({ ...newEvent, endDate: e.target.value })}
+                  className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event-etime-dialog" className="text-textSecondary">End Time</Label>
+                <Input
+                  id="event-etime-dialog"
+                  type="time"
+                  value={newEvent.endTime}
+                  onChange={e => setNewEvent({ ...newEvent, endTime: e.target.value })}
+                  className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -1208,7 +1219,7 @@ const BookSlot: React.FC<BookSlotProps> = ({ currentUser }) => {
             <Button 
               type="button"
               onClick={handleCreateEvent} 
-              disabled={isSavingEvent || !newEvent.name || !newEvent.date}
+              disabled={isSavingEvent || !newEvent.name || !newEvent.startDate}
               className="rounded-xl bg-brand hover:bg-brand/90 text-white font-semibold"
             >
               {isSavingEvent ? 'Registering...' : 'Register Event'}

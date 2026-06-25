@@ -12,6 +12,11 @@ import {
   ClipboardList,
   Layers,
   Users,
+  Home,
+  ListTodo,
+  Calendar,
+  Archive,
+  MapPin,
 } from 'lucide-react';
 import { User } from '../types';
 import { Button } from '../components/ui/button';
@@ -36,7 +41,10 @@ const adminLinks = [
   { to: '/admin/requests', label: 'Requests', icon: ClipboardList },
   { to: '/admin/schedule', label: 'Schedule', icon: Layers },
   { to: '/admin/clubs', label: 'Clubs', icon: Users },
+  { to: '/admin/venues', label: 'Venues', icon: MapPin },
+  { to: '/admin/event-reports', label: 'Event Reports', icon: FileText },
   { to: '/members', label: 'Members', icon: Users },
+  { to: '/archives', label: 'Archives', icon: Archive },
 ];
 
 const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
@@ -46,10 +54,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
   const links = user.role === 'club' 
     ? [
-        { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-        { to: '/book', label: 'Book Slot', icon: CalendarPlus },
-        { to: '/my-bookings', label: 'My Bookings', icon: CalendarDays },
-        { to: '/members', label: isCommittee ? 'Committee Member' : 'Club Member', icon: Users },
+        { to: '/', label: 'Club Portal', icon: Home, end: true },
+        { to: '/book', label: 'Book Venue', icon: CalendarPlus },
+        { to: '/my-bookings', label: 'My Bookings', icon: ListTodo },
+        { to: '/manage-events', label: 'Manage Events', icon: Calendar },
+        { to: '/event-reports', label: 'Event Reports', icon: FileText },
+        { to: '/members', label: 'Members', icon: Users },
+        { to: '/archives', label: 'Archives', icon: Archive },
         { to: '/policy', label: 'Policy', icon: FileText },
       ]
     : adminLinks;

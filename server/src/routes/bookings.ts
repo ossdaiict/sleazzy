@@ -115,19 +115,22 @@ router.get('/my-bookings', authMiddleware, async (req, res) => {
 
     const queryStr = `
       SELECT b.*, 
+             e.name AS event_name,
+             e.event_type,
              json_build_object('name', c.name) AS clubs,
              json_build_object('name', v.name) AS venues
       FROM bookings b
       LEFT JOIN clubs c ON b.club_id = c.id
       LEFT JOIN venues v ON b.venue_id = v.id
+      LEFT JOIN events e ON b.event_id = e.id
       WHERE $1 = $2
       ORDER BY b.start_time DESC
     `;
 
     if (clubResult.rows.length === 0) {
-      // Fallback: if no club found, fetch by user_id
+      // Fallback: fetch by user_id if no club account found
       const { rows } = await db.query(
-        queryStr.replace('$1 = $2', 'b.user_id = $1'), 
+        queryStr.replace('$1 = $2', 'b.user_id = $1'),
         [req.user.id]
       );
       return res.json(rows);
@@ -146,6 +149,39 @@ router.get('/my-bookings', authMiddleware, async (req, res) => {
   }
 });
 
+router.delete('/my-bookings/:id', authMiddleware, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { id } = req.params;
+
+  try {
+    const clubResult = await db.query(
+      'SELECT id FROM clubs WHERE email = $1 LIMIT 1',
+      [req.user.email]
+    );
+
+    if (clubResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Club not found for this account' });
+    }
+
+    const clubId = clubResult.rows[0].id;
+
+    const checkRes = await db.query('SELECT * FROM bookings WHERE id = $1 AND club_id = $2', [id, clubId]);
+    if (checkRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Booking not found or not owned by you' });
+    }
+    
+    // Optionally: only allow deleting if it's pending, or let them cancel approved ones too.
+    // The prompt just says "functionality of deleting events and bookings must be provided".
+    await db.query('DELETE FROM bookings WHERE id = $1 AND club_id = $2', [id, clubId]);
+
+    return res.json({ success: true, message: 'Booking deleted successfully' });
+  } catch (err: any) {
+    console.error('Error deleting booking:', err);
+    return res.status(500).json({ error: 'Failed to delete booking' });
+  }
+});
+
 router.get('/bookings/check-conflict', checkConflict);
 
 import { getBusyVenues } from '../controllers/bookingController';
@@ -157,14 +193,17 @@ router.get('/public-bookings', async (_req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT b.*, 
+             e.name AS event_name,
+             e.event_type,
              json_build_object('name', c.name) AS clubs,
              json_build_object('name', v.name) AS venues
       FROM bookings b
       LEFT JOIN clubs c ON b.club_id = c.id
       LEFT JOIN venues v ON b.venue_id = v.id
+      LEFT JOIN events e ON b.event_id = e.id
       WHERE b.status = 'approved'
         AND b.end_time >= NOW()
-        AND b.event_type IS DISTINCT FROM 'closed_club'
+        AND e.event_type IS DISTINCT FROM 'closed_club'
       ORDER BY b.start_time ASC
     `);
     
@@ -178,11 +217,14 @@ router.get('/campus-bookings', authMiddleware, async (_req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT b.*, 
+             e.name AS event_name,
+             e.event_type,
              json_build_object('name', c.name) AS clubs,
              json_build_object('name', v.name) AS venues
       FROM bookings b
       LEFT JOIN clubs c ON b.club_id = c.id
       LEFT JOIN venues v ON b.venue_id = v.id
+      LEFT JOIN events e ON b.event_id = e.id
       WHERE b.status = 'approved' AND b.end_time >= NOW()
       ORDER BY b.start_time ASC
     `);

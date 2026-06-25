@@ -241,6 +241,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 import eventsRoutes from './routes/events';
+import eventReportsRoutes from './routes/eventReports';
+import archivesRoutes from './routes/archives';
+import { startCronJobs } from './services/emailReminders';
 
 app.use('/api', bookingsRoutes);
 app.use('/api/auth', authRoutes);
@@ -248,6 +251,11 @@ app.use('/api/club-members', clubMembersRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/events', eventsRoutes);
+app.use('/api/event-reports', eventReportsRoutes);
+app.use('/api/archives', archivesRoutes);
+
+// Start background cron jobs
+startCronJobs();
 
 // Serve frontend static files
 const clientDir = process.env.CLIENT_DIST_DIR || path.join(__dirname, '../../client');

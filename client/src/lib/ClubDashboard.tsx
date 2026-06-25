@@ -154,9 +154,6 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   const [myEvents, setMyEvents] = React.useState<Booking[]>([]);
   const [venues, setVenues] = React.useState<ApiVenue[]>([]);
   const [registeredEvents, setRegisteredEvents] = React.useState<AppEvent[]>([]);
-  const [isAddEventOpen, setIsAddEventOpen] = React.useState(false);
-  const [newEvent, setNewEvent] = React.useState({ name: '', date: '', venue: '' });
-  const [isSaving, setIsSaving] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [calendarView, setCalendarView] = React.useState<'global' | 'club'>('global');
@@ -223,25 +220,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     }
   }, []);
 
-  const handleCreateEvent = async () => {
-    setIsSaving(true);
-    try {
-      await apiRequest('/api/events', {
-        method: 'POST',
-        auth: true,
-        body: newEvent,
-      });
-      toast.success('Event registered successfully');
-      setIsAddEventOpen(false);
-      setNewEvent({ name: '', date: '', venue: '' });
-      fetchEvents();
-    } catch (error) {
-      console.error('Failed to create event:', error);
-      toast.error('Failed to register event');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+
 
   const handleSaveAbout = async () => {
     setIsSavingAbout(true);
@@ -314,14 +293,14 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     []
   );
 
-  const toCalendarEvents = React.useCallback((events: Booking[]): CalendarEvent[] =>
+  const toCalendarEvents = React.useCallback((events: any[]): CalendarEvent[] =>
     events.map(e => ({
       eventName: e.eventName,
       clubName: e.clubName,
       date: e.date,
       startTime: e.startTime,
       endTime: e.endTime,
-      venueName: getVenueName(e.venueId),
+      venueName: e.venueName || getVenueName(e.venueId || e.venueIds?.[0]),
       status: e.status,
       eventType: e.eventType,
     })),
@@ -333,8 +312,8 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   const myEventDates = React.useMemo(() => getEventDates(myEvents), [getEventDates, myEvents]);
 
   // Show approved campus bookings plus this club's own bookings, including closed-club events for booking awareness.
-  const calendarEventsWithVenue = React.useMemo(() => toCalendarEvents(visibleGlobalEvents), [toCalendarEvents, visibleGlobalEvents]);
-  const myCalendarEventsWithVenue = React.useMemo(() => toCalendarEvents(myEvents), [toCalendarEvents, myEvents]);
+  const calendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(visibleGlobalEvents, venues)), [toCalendarEvents, visibleGlobalEvents, venues]);
+  const myCalendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(myEvents, venues)), [toCalendarEvents, myEvents, venues]);
   const activeCalendar = React.useMemo(() => {
     if (calendarView === 'club') {
       return {
@@ -366,11 +345,14 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   const upcomingEvents = React.useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    return groupBookings(visibleGlobalEvents, venues)
-      .filter(e => new Date(e.date) >= now)
+    return registeredEvents
+      .filter(e => {
+        const eventEnd = e.dynamic_end_date ? new Date(e.dynamic_end_date) : new Date(e.date);
+        return eventEnd >= now && (e as any).status !== 'cancelled';
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 6);
-  }, [visibleGlobalEvents, venues]);
+  }, [registeredEvents]);
 
   if (error) {
     return (
@@ -565,14 +547,8 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             <CardHeader className="border-b border-borderSoft">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Registered {entityType} Events</CardTitle>
-                <Button 
-                  onClick={() => setIsAddEventOpen(true)} 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 px-2 text-xs text-brand hover:text-brand/80 hover:bg-brand/10 gap-1 rounded-lg font-semibold"
-                >
-                  <Plus size={14} />
-                  Register
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/manage-events" className="text-xs text-brand font-semibold hover:text-brand/80">View All & Register</Link>
                 </Button>
               </div>
             </CardHeader>
@@ -593,23 +569,33 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                           Date: {new Date(event.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                         </div>
                       </div>
-                      <Button
-                        onClick={() => navigate('/book', { 
-                          state: { 
-                            prefill: { 
-                              event_id: event.id,
-                              eventName: event.name,
-                              date: event.date ? event.date.split('T')[0] : '',
-                              venueName: event.venue || ''
-                            } 
-                          } 
-                        })}
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[11px] rounded-lg bg-brand/10 hover:bg-brand/20 border-brand/20 text-brand font-bold shrink-0 px-2.5 py-0"
-                      >
-                        Book Slot
-                      </Button>
+                      {(() => {
+                        const eventDate = new Date(event.date);
+                        eventDate.setHours(0, 0, 0, 0);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const isPast = eventDate < today;
+                        
+                        return !isPast ? (
+                          <Button
+                            onClick={() => navigate('/book', { 
+                              state: { 
+                                prefill: { 
+                                  event_id: event.id,
+                                  eventName: event.name,
+                                  date: event.date ? event.date.split('T')[0] : '',
+                                  venueName: event.venue || ''
+                                } 
+                              } 
+                            })}
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] rounded-lg bg-brand/10 hover:bg-brand/20 border-brand/20 text-brand font-bold shrink-0 px-2.5 py-0"
+                          >
+                            Book Slot
+                          </Button>
+                        ) : null;
+                      })()}
                     </div>
                   </motion.div>
                 ))}
@@ -642,48 +628,48 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
           <CardContent className="p-4 sm:p-6">
             {upcomingEvents.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {upcomingEvents.map((event, index) => (
-                  <motion.div
-                    key={event.batchId || event.ids?.[0] || index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    whileHover={{ y: -2 }}
-                  >
-                    <Card className="border border-borderSoft rounded-xl hover:border-brand/30 hover:shadow-md transition-all duration-200 h-full">
-                      <CardContent className="p-4">
-                        <div className="font-semibold text-foreground text-sm leading-tight mb-1">{event.eventName}</div>
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-primary font-medium">{event.clubName}</span>
-                          {event.eventType && (
-                            <Badge variant="outline" className="text-[10px] h-5">
-                              {formatEventType(event.eventType)}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <CalendarPlus size={12} className="text-primary/60 shrink-0" />
-                            <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                {upcomingEvents.map((event, index) => {
+                  const startDate = new Date(event.date);
+                  const endDate = event.dynamic_end_date ? new Date(event.dynamic_end_date) : startDate;
+                  const isMultiDay = endDate.toDateString() !== startDate.toDateString();
+                  return (
+                    <motion.div
+                      key={event.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      whileHover={{ y: -2 }}
+                    >
+                      <Card className="border border-borderSoft rounded-xl hover:border-brand/30 hover:shadow-md transition-all duration-200 h-full">
+                        <CardContent className="p-4">
+                          <div className="font-semibold text-foreground text-sm leading-tight mb-1">{event.name}</div>
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            {(event as any).event_type && (
+                              <Badge variant="outline" className="text-[10px] h-5">
+                                {formatEventType((event as any).event_type)}
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock size={12} className="text-primary/60 shrink-0" />
-                            <span>{event.startTime} - {event.endTime}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <MapPin size={12} className="text-primary/60 shrink-0" />
-                            <span>{event.venueName}</span>
-                          </div>
-                          {event.status === 'partial' && (
-                            <div className="mt-2">
-                              <Badge variant="warning" className="text-[10px]">PARTIALLY APPROVED</Badge>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <CalendarPlus size={12} className="text-primary/60 shrink-0" />
+                              <span>
+                                {startDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                {isMultiDay && ` – ${endDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                            {event.venue && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <MapPin size={12} className="text-primary/60 shrink-0" />
+                                <span>{event.venue}</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
@@ -710,50 +696,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         </Alert>
       </motion.div>
 
-      {/* Dialog for Register Event */}
-      <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl bg-card border border-borderSoft text-textPrimary">
-          <DialogHeader>
-            <DialogTitle>Register a New Event</DialogTitle>
-            <DialogDescription className="text-textMuted">
-              Create an event to tie slot bookings to it.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="event-name-dialog" className="text-textSecondary">Event Name *</Label>
-              <Input
-                id="event-name-dialog"
-                value={newEvent.name}
-                onChange={e => setNewEvent({ ...newEvent, name: e.target.value })}
-                placeholder="e.g. Annual Tech Fest"
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="event-date-dialog" className="text-textSecondary">Date *</Label>
-              <Input
-                id="event-date-dialog"
-                type="date"
-                value={newEvent.date}
-                onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsAddEventOpen(false)} className="rounded-xl border-borderSoft text-textSecondary hover:bg-hoverSoft">Cancel</Button>
-            <Button 
-              type="button"
-              onClick={handleCreateEvent} 
-              disabled={isSaving || !newEvent.name || !newEvent.date}
-              className="rounded-xl bg-brand hover:bg-brand/90 text-white font-semibold"
-            >
-              {isSaving ? 'Registering...' : 'Register Event'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Dialog for Edit About & Socials */}
       <Dialog open={isEditAboutOpen} onOpenChange={setIsEditAboutOpen}>

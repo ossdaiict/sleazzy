@@ -245,7 +245,14 @@ const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, h
               </div>
             )}
             <div>
-              <div className="font-semibold text-textPrimary">{req.eventName}</div>
+              <div className="font-semibold text-textPrimary flex items-center gap-2">
+                {req.eventName}
+                {req.issueFlag && (
+                  <div className="text-warning" title={req.issueFlag}>
+                    <AlertTriangle size={14} />
+                  </div>
+                )}
+              </div>
               <div className="text-xs text-textMuted mt-0.5">{req.clubName}</div>
               <div className="text-xs text-textMuted mt-1 sm:hidden">
                 <div className="flex items-center gap-1">
@@ -338,6 +345,11 @@ const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, h
                       <div className="flex flex-col">
                         <span className="font-semibold text-sm">{getVenueName(booking.venueId)}</span>
                         <span className="text-xs text-textMuted">{booking.startTime} - {booking.endTime}</span>
+                        {booking.issueFlag && (
+                          <span className="text-[10px] font-medium text-warning mt-0.5 flex items-center gap-1">
+                            <AlertTriangle size={10} /> {booking.issueFlag}
+                          </span>
+                        )}
                       </div>
                       <Badge variant={booking.status === 'approved' ? 'success' : booking.status === 'rejected' ? 'destructive' : 'pending'} className="text-[10px] h-5">
                         {booking.status.toUpperCase()}

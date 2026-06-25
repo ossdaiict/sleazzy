@@ -92,6 +92,7 @@ export type ApiVenue = {
   name: string;
   category: string;
   capacity?: number | null;
+  location?: string | null;
 };
 
 export type ApiClub = {
@@ -114,6 +115,7 @@ export type ApiBooking = {
   expected_attendees?: number;
   batch_id?: string;
   is_public?: boolean;
+  issue_flag?: string | null;
 };
 
 export const mapBooking = (booking: ApiBooking) => {
@@ -138,6 +140,7 @@ export const mapBooking = (booking: ApiBooking) => {
     batchId: booking.batch_id,
     isPublic: booking.is_public ?? false,
     clubId: booking.club_id,
+    issueFlag: booking.issue_flag,
   };
 };
 
@@ -213,6 +216,8 @@ export const groupBookings = (bookings: Booking[], venues: ApiVenue[] = []): Gro
       } else {
         existing.status = 'partial';
       }
+      
+      existing.issueFlag = existing.bookings.find(b => b.issueFlag)?.issueFlag || null;
     } else {
       grouped.set(key, {
         ...b,

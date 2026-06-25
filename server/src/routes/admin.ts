@@ -17,14 +17,17 @@ const adminOnly = (req: express.Request, res: express.Response, next: express.Ne
 
 router.use(authMiddleware, adminOnly);
 
-// Reusable base query to fake the Supabase nested object structure
+// Reusable base query — event_name and event_type joined from events table
 const baseBookingQuery = `
   SELECT b.*, 
+         e.name AS event_name,
+         e.event_type,
          json_build_object('name', c.name) AS clubs,
          json_build_object('name', v.name) AS venues
   FROM bookings b
   LEFT JOIN clubs c ON b.club_id = c.id
   LEFT JOIN venues v ON b.venue_id = v.id
+  LEFT JOIN events e ON b.event_id = e.id
 `;
 
 router.get('/pending', async (_req, res) => {
@@ -73,11 +76,18 @@ router.patch('/bookings/:id/status', async (req, res) => {
     if (rows.length === 0) throw new Error('Booking not found');
     const data = rows[0];
 
+    // Fetch event name for the notification
+    let eventName = 'Event';
+    if (data.event_id) {
+      const evRes = await db.query('SELECT name FROM events WHERE id = $1', [data.event_id]);
+      if (evRes.rows.length > 0) eventName = evRes.rows[0].name;
+    }
+
     // Create a notification for the status change
     await createNotification({
       type: status === 'approved' ? 'booking_approved' : 'booking_rejected',
       title: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-      message: `"${data.event_name}" has been ${status}.`,
+      message: `"${eventName}" has been ${status}.`,
       userId: data.user_id,
       metadata: { bookingId: id, status },
     });
@@ -86,7 +96,7 @@ router.patch('/bookings/:id/status', async (req, res) => {
     io.to(`club:${data.club_id}`).emit('booking:status_changed', {
       bookingId: id,
       status,
-      eventName: data.event_name,
+      eventName,
       clubId: data.club_id,
     });
 
@@ -100,63 +110,42 @@ router.patch('/bookings/:id/status', async (req, res) => {
   }
 });
 
-router.patch('/bookings/:id/visibility', async (req, res) => {
-  const { id } = req.params;
-  const { is_public } = req.body as { is_public?: boolean };
-
-  if (typeof is_public !== 'boolean') {
-    return res.status(400).json({ error: 'is_public must be a boolean' });
-  }
-
-  try {
-    const { rows } = await db.query(`
-      UPDATE bookings SET is_public = $1 
-      WHERE id = $2 
-      RETURNING *
-    `, [is_public, id]);
-
-    if (rows.length === 0) throw new Error('Booking not found');
-    
-    return res.json(rows[0]);
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
-  }
-});
+// Visibility endpoint removed — is_public column dropped.
+// Bookings visibility is now determined by event_type on the events table.
 
 router.put('/bookings/:id', async (req, res) => {
   const { id } = req.params;
   const {
-    event_name, venue_id, start_time, end_time,
-    event_type, expected_attendees, status, is_public,
+    venue_id, start_time, end_time,
+    expected_attendees, status,
   } = req.body;
 
   const updateFields: Record<string, any> = {};
-  if (event_name !== undefined) updateFields.event_name = event_name;
   if (venue_id !== undefined) updateFields.venue_id = venue_id;
   if (start_time !== undefined) updateFields.start_time = start_time;
   if (end_time !== undefined) updateFields.end_time = end_time;
-  if (event_type !== undefined) updateFields.event_type = event_type;
   if (expected_attendees !== undefined) updateFields.expected_attendees = expected_attendees;
   if (status !== undefined) updateFields.status = status;
-  if (is_public !== undefined) updateFields.is_public = is_public;
 
   if (Object.keys(updateFields).length === 0) {
     return res.status(400).json({ error: 'No fields to update' });
   }
 
   try {
-    // Co-curricular limit check
-    if (event_type === 'co_curricular') {
-      const existRes = await db.query('SELECT club_id, start_time, event_type FROM bookings WHERE id = $1', [id]);
-      if (existRes.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
-      
-      const existing = existRes.rows[0];
-      const eventDate = new Date(start_time || existing.start_time);
-      const { start: semStart, end: semEnd } = getSemesterRange(eventDate);
-      const count = await countCoCurricularBookings(existing.club_id, semStart, semEnd, id);
-      
-      if (count >= CO_CURRICULAR_LIMIT) {
-        return res.status(400).json({ error: `This club has already booked ${CO_CURRICULAR_LIMIT} co-curricular events.` });
+    // Co-curricular limit check — event_type from the events table
+    if (status === 'approved') {
+      const existRes = await db.query(
+        `SELECT b.club_id, b.start_time, e.event_type
+         FROM bookings b LEFT JOIN events e ON b.event_id = e.id
+         WHERE b.id = $1`, [id]);
+      if (existRes.rows.length > 0 && existRes.rows[0].event_type === 'co_curricular') {
+        const existing = existRes.rows[0];
+        const eventDate = new Date(start_time || existing.start_time);
+        const { start: semStart, end: semEnd } = getSemesterRange(eventDate);
+        const count = await countCoCurricularBookings(existing.club_id, semStart, semEnd, id);
+        if (count >= CO_CURRICULAR_LIMIT) {
+          return res.status(400).json({ error: `This club has already booked ${CO_CURRICULAR_LIMIT} co-curricular events.` });
+        }
       }
     }
 
@@ -188,7 +177,6 @@ router.put('/bookings/:id', async (req, res) => {
       status: data.status,
       eventName: data.event_name,
       clubId: data.club_id,
-      userId: data.user_id,
     });
 
     return res.json(data);
@@ -201,7 +189,10 @@ router.delete('/bookings/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const fetchRes = await db.query('SELECT club_id, event_name FROM bookings WHERE id = $1', [id]);
+    const fetchRes = await db.query(
+      `SELECT b.club_id, e.name AS event_name
+       FROM bookings b LEFT JOIN events e ON b.event_id = e.id
+       WHERE b.id = $1`, [id]);
     const booking = fetchRes.rows[0];
 
     await db.query('DELETE FROM bookings WHERE id = $1', [id]);
@@ -223,13 +214,25 @@ router.delete('/bookings/:id', async (req, res) => {
 });
 
 router.post('/bookings', async (req, res) => {
-  const { club_id, venue_ids, event_name, start_time, end_time, event_type, expected_attendees, is_public } = req.body;
+  const { club_id, venue_ids, start_time, end_time, expected_attendees, event_id } = req.body;
 
-  if (!club_id || !event_name || !start_time || !end_time || !venue_ids || !Array.isArray(venue_ids) || venue_ids.length === 0) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  if (!club_id || !start_time || !end_time || !venue_ids || !Array.isArray(venue_ids) || venue_ids.length === 0 || !event_id) {
+    return res.status(400).json({ error: 'Missing required fields. Event selection is mandatory.' });
   }
 
   try {
+    const { rows: fetchedEventRows } = await db.query(
+      'SELECT name, event_type FROM events WHERE id = $1',
+      [event_id]
+    );
+
+    if (fetchedEventRows.length === 0) {
+      return res.status(404).json({ error: 'Selected event not found.' });
+    }
+
+    const event_name = fetchedEventRows[0].name;
+    const event_type = fetchedEventRows[0].event_type;
+
     if (event_type === 'co_curricular') {
       const eventDate = new Date(start_time);
       const { start: semStart, end: semEnd } = getSemesterRange(eventDate);
@@ -243,21 +246,23 @@ router.post('/bookings', async (req, res) => {
     const batchId = randomUUID();
     const createdBookings = [];
 
-    // Loop through venue_ids and insert bookings
     for (const venueId of venue_ids) {
       const { rows } = await db.query(`
         WITH inserted AS (
-          INSERT INTO bookings (club_id, venue_id, event_name, start_time, end_time, event_type, expected_attendees, is_public, status, batch_id)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'approved', $9)
+          INSERT INTO bookings (club_id, venue_id, start_time, end_time, expected_attendees, status, batch_id, event_id)
+          VALUES ($1, $2, $3, $4, $5, 'approved', $6, $7)
           RETURNING *
         )
-        SELECT i.*, 
+        SELECT i.*,
+               e.name AS event_name,
+               e.event_type,
                json_build_object('name', c.name) AS clubs,
                json_build_object('name', v.name) AS venues
         FROM inserted i
         LEFT JOIN clubs c ON i.club_id = c.id
         LEFT JOIN venues v ON i.venue_id = v.id
-      `, [club_id, venueId, event_name, start_time, end_time, event_type || null, expected_attendees || 0, is_public ?? false, batchId]);
+        LEFT JOIN events e ON i.event_id = e.id
+      `, [club_id, venueId, start_time, end_time, expected_attendees || 0, batchId, event_id]);
       
       createdBookings.push(rows[0]);
     }
@@ -266,7 +271,7 @@ router.post('/bookings', async (req, res) => {
       type: 'booking_approved',
       title: 'Event Created by Admin',
       message: `"${event_name}" has been created and auto-approved.`,
-      userId: createdBookings[0].user_id,
+      userId: createdBookings[0]?.user_id || null,
       metadata: { batchId, venues: venue_ids },
     });
 
@@ -397,6 +402,70 @@ router.get('/club-members/all', async (_req, res) => {
                cm.full_name ASC
     `);
     return res.json(rows);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/venues', async (req, res) => {
+  const { name, category, capacity, location } = req.body;
+  if (!name || !category) {
+    return res.status(400).json({ error: 'Name and category are required' });
+  }
+  try {
+    const { rows } = await db.query(
+      'INSERT INTO venues (name, category, capacity, location) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, category, capacity || null, location || null]
+    );
+    return res.status(201).json(rows[0]);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/venues/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, category, capacity, location } = req.body;
+
+  const updateFields: Record<string, any> = {};
+  if (name !== undefined) updateFields.name = name;
+  if (category !== undefined) updateFields.category = category;
+  if (capacity !== undefined) updateFields.capacity = capacity;
+  if (location !== undefined) updateFields.location = location;
+
+  if (Object.keys(updateFields).length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+  try {
+    const keys = Object.keys(updateFields);
+    const setString = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = Object.values(updateFields);
+    values.push(id);
+
+    const { rows } = await db.query(`UPDATE venues SET ${setString} WHERE id = $${values.length} RETURNING *`, values);
+    
+    if (rows.length === 0) throw new Error('Venue not found');
+    return res.json(rows[0]);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/venues/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await db.query('SELECT * FROM venues WHERE id = $1', [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Venue not found' });
+
+    // Ensure we don't violate constraints if we shouldn't delete venues with active bookings
+    // But since ON DELETE CASCADE is set on bookings.venue_id, deleting a venue will delete its bookings!
+    // We should probably check if there are any active bookings first.
+    const activeBookings = await db.query("SELECT id FROM bookings WHERE venue_id = $1 AND status != 'rejected' AND end_time > NOW()", [id]);
+    if (activeBookings.rows.length > 0) {
+      return res.status(400).json({ error: 'Cannot delete a venue with active or upcoming bookings' });
+    }
+
+    await db.query('DELETE FROM venues WHERE id = $1', [id]);
+    return res.json({ success: true });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

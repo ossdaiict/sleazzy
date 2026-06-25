@@ -19,6 +19,7 @@ const MyBookings: React.FC = () => {
   const [venues, setVenues] = useState<ApiVenue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'active' | 'past'>('active');
 
   // Extra Room Dialog State
   const [isExtraRoomOpen, setIsExtraRoomOpen] = useState(false);
@@ -73,14 +74,8 @@ const MyBookings: React.FC = () => {
     return groupBookings(myBookings, venues);
   }, [myBookings, venues]);
 
-  const isPastEvent = (dateStr: string) => {
-    const eventDate = new Date(dateStr);
-    const today = new Date();
-    return eventDate < today;
-  };
-
-  const handleFileUpload = (id: string, type: 'report' | 'indent') => {
-    toastInfo(`File upload for ${type === 'report' ? 'event report' : 'indent'} will be available soon.`);
+  const isPastEvent = (booking: GroupedBooking) => {
+    return new Date(booking.endTimeISO) < new Date();
   };
 
   const openExtraRoomDialog = (booking: GroupedBooking) => {
@@ -100,6 +95,21 @@ const MyBookings: React.FC = () => {
           <motion.h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-textPrimary tracking-tighter">My Bookings</motion.h2>
           <p className="text-textSecondary mt-2 sm:mt-3 text-sm sm:text-base font-medium leading-relaxed max-w-xl">Track your venue reservations, manage schedules, and submit documentation.</p>
         </div>
+      </div>
+
+      <div className="flex gap-4 border-b border-borderSoft pb-2 mt-4">
+        <button
+          onClick={() => setTab('active')}
+          className={`pb-2 px-2 font-medium transition-colors ${tab === 'active' ? 'border-b-2 border-brand text-brand' : 'text-textMuted hover:text-textPrimary'}`}
+        >
+          Active Bookings
+        </button>
+        <button
+          onClick={() => setTab('past')}
+          className={`pb-2 px-2 font-medium transition-colors ${tab === 'past' ? 'border-b-2 border-brand text-brand' : 'text-textMuted hover:text-textPrimary'}`}
+        >
+          Past Bookings
+        </button>
       </div>
 
       {error && (
@@ -128,8 +138,8 @@ const MyBookings: React.FC = () => {
         </Card>
       ) : (
         <div className="grid gap-6 pb-12">
-          {groupedBookings.map((booking, index) => {
-            const isPast = isPastEvent(booking.date);
+          {groupedBookings.filter(b => (tab === 'active' ? !isPastEvent(b) : isPastEvent(b))).map((booking, index) => {
+            const isPast = isPastEvent(booking);
             const approvedVenues = booking.bookings.filter(b => b.status === 'approved');
             const rejectedVenues = booking.bookings.filter(b => b.status === 'rejected');
             const pendingVenues = booking.bookings.filter(b => b.status === 'pending');
@@ -153,7 +163,12 @@ const MyBookings: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                           <div className="flex-1">
-                            <h3 className={cn("text-2xl font-bold mb-3", isPast ? 'text-textMuted' : 'text-textPrimary')}>{booking.eventName}</h3>
+                            <h3 className={cn("text-2xl font-bold mb-2", isPast ? 'text-textMuted' : 'text-textPrimary')}>{booking.eventName}</h3>
+                            {booking.eventType && (
+                              <Badge variant="outline" className="text-[10px] h-5 mb-3">
+                                {booking.eventType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                              </Badge>
+                            )}
                             <div className="flex items-center gap-2 text-sm mb-4 font-medium text-textSecondary">
                               <Clock size={16} className="text-brand" />
                               <span>
@@ -220,17 +235,30 @@ const MyBookings: React.FC = () => {
 
                         <div className="mt-6 pt-6 border-t border-borderSoft/50 flex flex-wrap gap-3">
                           {!isPast && (booking.status === 'approved' || booking.status === 'pending' || booking.status === 'partial') && (
-                            <Button variant="outline" size="sm" onClick={() => openExtraRoomDialog(booking)} className="gap-2 rounded-lg font-semibold bg-brand/5 text-brand border-brand/20 hover:bg-brand/10 shadow-sm">
-                              <Plus className="h-4 w-4" /> Request Extra Room
-                            </Button>
-                          )}
-                          {isPast && booking.status === 'approved' && (
                             <>
-                              <Button variant="outline" size="sm" onClick={() => handleFileUpload(booking.ids[0], 'report')} className="gap-2 rounded-lg font-semibold hover:bg-brand/10 border-borderSoft">
-                                <Upload size={16} /> Upload Event Report
+                              <Button variant="outline" size="sm" onClick={() => openExtraRoomDialog(booking)} className="gap-2 rounded-lg font-semibold bg-brand/5 text-brand border-brand/20 hover:bg-brand/10 shadow-sm">
+                                <Plus className="h-4 w-4" /> Request Extra Room
                               </Button>
-                              <Button variant="outline" size="sm" onClick={() => handleFileUpload(booking.ids[0], 'indent')} className="gap-2 rounded-lg font-semibold hover:bg-brand/10 border-borderSoft">
-                                <FileText size={16} /> Upload Indent
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={async () => {
+                                  if (confirm('Are you sure you want to cancel this booking?')) {
+                                    try {
+                                      // Cancel the first id of the grouped booking (or maybe all? We'll just cancel the first one, or we should loop over them)
+                                      for (const id of booking.ids) {
+                                        await apiRequest(`/api/my-bookings/${id}`, { method: 'DELETE', auth: true });
+                                      }
+                                      toastInfo('Booking cancelled successfully');
+                                      fetchBookings();
+                                    } catch (err) {
+                                      toastError(err, 'Failed to cancel booking');
+                                    }
+                                  }
+                                }} 
+                                className="gap-2 rounded-lg font-semibold bg-error/5 text-error border-error/20 hover:bg-error/10 shadow-sm"
+                              >
+                                Cancel Booking
                               </Button>
                             </>
                           )}

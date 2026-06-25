@@ -89,31 +89,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
     const fetchEvents = useCallback(async () => {
         try {
             setLoading(true);
-            const [bookings, venuesData, membersData] = await Promise.all([
-                apiRequest<ApiBooking[]>('/api/public-bookings'),
-                apiRequest<ApiVenue[]>('/api/venues'),
+            const [eventsData, membersData] = await Promise.all([
+                apiRequest<any[]>('/api/events/public'),
                 apiRequest<any[]>('/api/club-members/public').catch(() => []),
             ]);
-            setVenues(venuesData);
             setPublicMembers(membersData);
-            const mapped = bookings
-                .map(mapBooking)
-                .filter(booking => booking.eventType !== 'closed_club');
-            const grouped = groupBookings(mapped, venuesData);
 
-            const finalParsed: PublicEvent[] = grouped.map(g => {
-                const first = g.bookings[0];
+            const finalParsed: PublicEvent[] = eventsData.map(e => {
                 return {
-                    id: g.ids[0],
-                    ids: g.ids,
-                    eventName: g.eventName,
-                    clubName: g.clubName,
-                    venueName: g.venueName,
-                    startTime: new Date(first.date),
-                    endTime: new Date(new Date(first.date).getTime() + 3600000),
-                    eventType: first.eventType,
-                    batchId: g.batchId,
-                    status: g.status,
+                    id: e.id,
+                    ids: [e.id],
+                    eventName: e.name,
+                    clubName: e.clubs?.name || 'Unknown Club',
+                    venueName: e.venue || 'No Venue Specified',
+                    startTime: new Date(e.date),
+                    endTime: new Date(e.end_date || e.date),
+                    eventType: e.event_type,
+                    status: 'approved',
                 };
             });
 

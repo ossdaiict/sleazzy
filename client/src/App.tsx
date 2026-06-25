@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/error-boundary';
 import Layout from './pages/Layout';
 import ClubDashboard from './lib/ClubDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminVenues from './pages/AdminVenues';
 import BookSlot from './pages/BookSlot';
 import AdminClubs from './pages/AdminClubs';
 import AdminRequests from './pages/AdminRequests';
@@ -15,6 +16,10 @@ import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import ClubsCommitteesPage from './pages/ClubsCommitteesPage';
 import ClubCommittee from './pages/ClubCommittee';
+import ManageEvents from './pages/ManageEvents';
+import EventReports from './pages/EventReports';
+import AdminEventReports from './pages/AdminEventReports';
+import Archives from './pages/Archives';
 import { User } from './types';
 import { apiRequest } from './lib/api';
 import { toastError } from './lib/toast';
@@ -185,13 +190,18 @@ const App: React.FC = () => {
 
             <Route path="/book" element={<BookSlot currentUser={user} />} />
             <Route path="/my-bookings" element={<MyBookings />} />
+            <Route path="/manage-events" element={<ManageEvents />} />
+            <Route path="/event-reports" element={<EventReports />} />
             <Route path="/members" element={<ClubMembers user={user} />} />
             <Route path="/committee" element={user.role === 'club' ? <ClubCommittee user={user} /> : <Navigate to="/" replace />} />
             <Route path="/policy" element={<PolicyPage />} />
 
             <Route path="/admin/requests" element={<AdminRequests />} />
             <Route path="/admin/schedule" element={<MasterSchedule />} />
-            <Route path="/admin/clubs" element={<AdminClubs />} />
+            <Route path="/admin/clubs" element={user.role === 'admin' ? <AdminClubs /> : <Navigate to="/" replace />} />
+            <Route path="/admin/venues" element={user.role === 'admin' ? <AdminVenues /> : <Navigate to="/" replace />} />
+            <Route path="/admin/event-reports" element={user.role === 'admin' ? <AdminEventReports /> : <Navigate to="/" replace />} />
+            <Route path="/archives" element={<Archives />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
