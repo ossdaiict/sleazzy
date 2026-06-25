@@ -182,8 +182,8 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                     <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
                         <ThemeToggle />
                         
-                        {/* Sign In (Always Visible) */}
-                        <div>
+                        {/* Sign In (Desktop Only) */}
+                        <div className="hidden md:block">
                             <Button
                                 onClick={onGoToLogin}
                                 className="rounded-xl h-10 px-3 sm:px-6 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 gap-1 text-xs sm:text-sm"
@@ -235,6 +235,16 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                                     className="justify-start rounded-xl h-11 px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-sm w-full"
                                 >
                                     Clubs & Committees
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        onGoToLogin();
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="justify-center rounded-xl h-11 px-4 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 gap-1.5 text-sm w-full mt-2"
+                                >
+                                    <span>Sign In</span>
+                                    <ArrowRight size={16} />
                                 </Button>
                             </div>
                         </motion.div>
