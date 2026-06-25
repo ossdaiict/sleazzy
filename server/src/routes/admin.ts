@@ -378,6 +378,26 @@ router.get('/clubs/:id/bookings', async (req, res) => {
   }
 });
 
+router.get('/clubs/:id/events', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await db.query(`
+      SELECT 
+        e.*,
+        c.name as club_name,
+        c.email as club_email
+      FROM events e
+      LEFT JOIN clubs c ON e.club_id = c.id
+      WHERE e.club_id = $1
+      ORDER BY e.date DESC
+    `, [id]);
+    
+    return res.json(rows);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/club-members/all', async (_req, res) => {
   try {
     const { rows } = await db.query(`

@@ -13,7 +13,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
-import { Booking } from '../types';
+import { AppEvent } from '../types';
 import { exportRosterToExcel, ExportClubMember } from '../lib/excelExport';
 
 interface ApiClub {
@@ -50,7 +50,7 @@ const AdminClubs: React.FC = () => {
     // Events State
     const [eventsSheetOpen, setEventsSheetOpen] = useState(false);
     const [selectedClub, setSelectedClub] = useState<ApiClub | null>(null);
-    const [clubEvents, setClubEvents] = useState<Booking[]>([]);
+    const [clubEvents, setClubEvents] = useState<AppEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
     const handleExportRoster = async () => {
@@ -180,23 +180,8 @@ const AdminClubs: React.FC = () => {
         setEventsSheetOpen(true);
         setIsLoadingEvents(true);
         try {
-            const data = await apiRequest<any[]>(`/api/admin/clubs/${club.id}/bookings`, { auth: true });
-            // Map properties from backend to frontend expectations
-            setClubEvents(data.map(e => ({
-                id: e.id,
-                eventName: e.event_name,
-                clubId: e.club_id,
-                clubName: e.clubs?.name,
-                venueId: e.venue_id,
-                venueName: e.venues?.name,
-                date: e.start_time,
-                startTime: new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                endTime: new Date(e.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                status: e.status,
-                eventType: e.event_type,
-                expectedAttendees: e.expected_attendees,
-                isPublic: e.is_public
-            })));
+            const data = await apiRequest<AppEvent[]>(`/api/admin/clubs/${club.id}/events`, { auth: true });
+            setClubEvents(data);
         } catch (err) {
             toastError(err, 'Failed to fetch events for club');
         } finally {
@@ -494,36 +479,52 @@ const AdminClubs: React.FC = () => {
                                 No events found for this club.
                             </div>
                         ) : (
-                            clubEvents.map(event => (
+                            clubEvents.map(event => {
+                                const now = new Date();
+                                const startDate = new Date(event.date);
+                                const endDate = event.dynamic_end_date ? new Date(event.dynamic_end_date) : new Date(startDate);
+                                endDate.setHours(23, 59, 59, 999);
+                                
+                                let timelineStatus = 'Ongoing';
+                                let badgeVariant: 'success' | 'outline' | 'secondary' = 'success';
+                                if (now < startDate) {
+                                    timelineStatus = 'Upcoming';
+                                    badgeVariant = 'outline';
+                                } else if (now > endDate) {
+                                    timelineStatus = 'Completed';
+                                    badgeVariant = 'secondary';
+                                }
+
+                                return (
                                 <Card key={event.id} className="rounded-lg bg-card border border-borderSoft hover:border-brand/50 transition-colors shadow-sm">
                                     <CardContent className="p-4">
                                         <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-semibold text-textPrimary leading-tight pr-4">{event.eventName}</h4>
+                                            <h4 className="font-semibold text-textPrimary leading-tight pr-4">{event.name}</h4>
                                             <Badge
-                                                variant={event.status === 'approved' ? 'success' : event.status === 'rejected' ? 'destructive' : 'pending'}
+                                                variant={badgeVariant}
                                                 className="text-[10px] px-1.5 py-0 h-5 shrink-0"
                                             >
-                                                {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                                                {timelineStatus}
                                             </Badge>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-2 text-sm mt-3">
                                             <div>
-                                                <span className="text-textMuted text-xs block uppercase tracking-wider mb-0.5">Date & Time</span>
+                                                <span className="text-textMuted text-xs block uppercase tracking-wider mb-0.5">Date</span>
                                                 <div className="font-medium text-textSecondary">{new Date(event.date).toLocaleDateString()}</div>
-                                                <div className="text-xs text-textMuted">{event.startTime} - {event.endTime}</div>
                                             </div>
                                             <div>
                                                 <span className="text-textMuted text-xs block uppercase tracking-wider mb-0.5">Venue</span>
-                                                <div className="font-medium text-textSecondary truncate max-w-full" title={event.venueName}>{event.venueName}</div>
-                                                {event.eventType === 'co_curricular' && (
+                                                <div className="font-medium text-textSecondary truncate max-w-full" title={event.venue}>{event.venue}</div>
+                                                {event.event_type === 'co_curricular' && (
                                                     <div className="text-xs text-brand mt-0.5 font-medium">Co-curricular</div>
                                                 )}
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
-                            ))
+                                )
+                            })
                         )}
                     </div>
                 </SheetContent>
