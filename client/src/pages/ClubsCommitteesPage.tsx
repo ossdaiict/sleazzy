@@ -49,6 +49,7 @@ interface Club {
     instagram_url?: string;
     youtube_url?: string;
     website_url?: string;
+    logo_url?: string;
 }
 
 interface CommitteeMember {
@@ -317,8 +318,8 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
             <Dialog open={!!selectedClubForModal} onOpenChange={(open) => !open && setSelectedClubForModal(null)}>
                 <DialogContent className="sm:max-w-xl rounded-2xl max-h-[85vh] overflow-y-auto bg-card">
                     <DialogHeader className="border-b border-borderSoft/40 pb-4 flex flex-row items-center gap-4 space-y-0">
-                        <Avatar className={cn("h-14 w-14 border border-borderSoft rounded-2xl shrink-0", getLogoBgClass(selectedClubForModal?.name || ''))}>
-                            <AvatarImage src={getClubLogoUrl(selectedClubForModal?.name || '') || ''} alt={selectedClubForModal?.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
+                        <Avatar className={cn("h-14 w-14 border border-borderSoft rounded-2xl shrink-0 bg-white", getLogoBgClass(selectedClubForModal?.name || ''))}>
+                            <AvatarImage src={selectedClubForModal?.logo_url || getClubLogoUrl(selectedClubForModal?.name || '') || ''} alt={selectedClubForModal?.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
                             <AvatarFallback className="bg-brand text-white font-bold text-lg rounded-2xl flex items-center justify-center">
                                 {selectedClubForModal?.name.charAt(0).toUpperCase()}
                             </AvatarFallback>
@@ -507,8 +508,8 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                                     >
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-3">
-                                                <Avatar className={cn("h-10 w-10 border border-borderSoft rounded-xl shrink-0", getLogoBgClass(club.name))}>
-                                                    <AvatarImage src={getClubLogoUrl(club.name) || ''} alt={club.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
+                                                <Avatar className={cn("h-10 w-10 border border-borderSoft rounded-xl shrink-0 bg-white", getLogoBgClass(club.name))}>
+                                                    <AvatarImage src={club.logo_url || getClubLogoUrl(club.name) || ''} alt={club.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
                                                     <AvatarFallback className="bg-brand/10 text-brand font-bold text-sm rounded-xl flex items-center justify-center">
                                                         {club.name.charAt(0).toUpperCase()}
                                                     </AvatarFallback>

@@ -23,6 +23,7 @@ export interface User {
   role: Role;
   group?: ClubGroupType; // Optional, for clubs
   clubId?: string;
+  logoUrl?: string | null;
 }
 
 export interface ClubMember {

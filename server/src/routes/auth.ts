@@ -215,6 +215,7 @@ router.get('/profile', async (req, res) => {
             role: profile.role,
             group: clubData ? clubData.group_category : undefined,
             clubId: clubData ? clubData.id : undefined,
+            logoUrl: clubData ? clubData.logo_url : null,
         };
 
         return res.json(responseData);

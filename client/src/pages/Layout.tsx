@@ -153,8 +153,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             className="p-3 border-t border-borderSoft"
           >
             <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-hoverSoft transition-colors group">
-               <Avatar className={cn("h-10 w-10 border border-borderSoft shrink-0 shadow-sm transition-all group-hover:border-brand/50 ring-2 ring-brand/10", getLogoBgClass(user.name))}>
-                <AvatarImage src={getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
+               <Avatar className={cn("h-10 w-10 border border-borderSoft shrink-0 shadow-sm transition-all group-hover:border-brand/50 ring-2 ring-brand/10 bg-white", getLogoBgClass(user.name))}>
+                <AvatarImage src={user.logoUrl || getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
                 <AvatarFallback className="bg-brand text-white font-semibold text-sm flex items-center justify-center">
                   {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>

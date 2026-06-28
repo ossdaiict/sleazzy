@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "migrate": "ts-node migrate.ts",
     "seed": "ts-node seed.ts",
+    "seed-logos": "ts-node seed-logos.ts",
     "reset-db": "ts-node reset-db.ts"
   },
   "dependencies": {

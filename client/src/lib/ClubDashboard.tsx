@@ -166,6 +166,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     instagram_url: string;
     youtube_url: string;
     website_url: string;
+    logo_url?: string;
   } | null>(null);
   const [isEditAboutOpen, setIsEditAboutOpen] = React.useState(false);
   const [isSavingAbout, setIsSavingAbout] = React.useState(false);
@@ -176,6 +177,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     instagram_url: '',
     youtube_url: '',
     website_url: '',
+    logo_url: '',
   });
 
   const isCommittee = user.name.toLowerCase().includes('committee');
@@ -208,6 +210,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         instagram_url: myClubData?.instagram_url || '',
         youtube_url: myClubData?.youtube_url || '',
         website_url: myClubData?.website_url || '',
+        logo_url: myClubData?.logo_url || '',
       });
     } catch (err) {
       console.error('Failed to fetch events:', err);
@@ -409,8 +412,8 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div className="flex items-center gap-4 min-w-0">
-          <Avatar className={cn("h-16 w-16 border-2 border-brand/20 ring-4 ring-brand/5 shrink-0 rounded-2xl", getLogoBgClass(user.name))}>
-            <AvatarImage src={getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
+          <Avatar className={cn("h-16 w-16 border-2 border-brand/20 ring-4 ring-brand/5 shrink-0 rounded-2xl bg-white", getLogoBgClass(user.name))}>
+            <AvatarImage src={clubDetails?.logo_url || getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
             <AvatarFallback className="bg-brand text-white font-bold text-xl rounded-2xl flex items-center justify-center">
               {user.name.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -708,6 +711,93 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label className="text-textSecondary font-semibold">Club/Committee Logo</Label>
+              <div className="flex items-center gap-4 p-3 rounded-xl bg-bgMain border border-borderSoft">
+                <Avatar className={cn("h-14 w-14 border border-borderSoft rounded-xl shrink-0 bg-white", getLogoBgClass(user.name))}>
+                  <AvatarImage src={editForm.logo_url || getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1" />
+                  <AvatarFallback className="bg-brand text-white font-semibold text-lg flex items-center justify-center">
+                    {user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                  <input
+                    type="file"
+                    id="edit-logo-file"
+                    accept="image/png, image/jpeg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error('Image size must be less than 2MB');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result && typeof event.target.result === 'string') {
+                            const img = new Image();
+                            img.onload = () => {
+                              const canvas = document.createElement('canvas');
+                              const MAX_WIDTH = 256;
+                              const MAX_HEIGHT = 256;
+                              let width = img.width;
+                              let height = img.height;
+
+                              if (width > height) {
+                                if (width > MAX_WIDTH) {
+                                  height *= MAX_WIDTH / width;
+                                  width = MAX_WIDTH;
+                                }
+                              } else {
+                                if (height > MAX_HEIGHT) {
+                                  width *= MAX_HEIGHT / height;
+                                  height = MAX_HEIGHT;
+                                }
+                              }
+
+                              canvas.width = width;
+                              canvas.height = height;
+                              const ctx = canvas.getContext('2d');
+                              if (ctx) {
+                                ctx.drawImage(img, 0, 0, width, height);
+                                const dataUrl = canvas.toDataURL('image/png');
+                                setEditForm(prev => ({ ...prev, logo_url: dataUrl }));
+                              }
+                            };
+                            img.src = event.target.result;
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg text-xs"
+                      onClick={() => document.getElementById('edit-logo-file')?.click()}
+                    >
+                      Choose Image
+                    </Button>
+                    {editForm.logo_url && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 rounded-lg text-xs text-error hover:bg-error/10 hover:text-error"
+                        onClick={() => setEditForm(prev => ({ ...prev, logo_url: '' }))}
+                      >
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-textMuted">PNG, JPG (Max 2MB)</span>
+                </div>
+              </div>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-description" className="text-textSecondary font-semibold">Description</Label>
               <textarea
