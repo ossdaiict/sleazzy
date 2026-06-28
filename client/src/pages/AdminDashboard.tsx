@@ -348,7 +348,7 @@ const AdminDashboard: React.FC = () => {
           </CardHeader>
 
           <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col md:flex-row gap-6 sm:gap-8">
+            <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
               {/* Calendar container - centered but spanning more width */}
               <div className="flex-1 flex justify-center lg:justify-start overflow-hidden">
                 <Calendar

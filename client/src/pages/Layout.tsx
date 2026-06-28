@@ -109,7 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   return (
     <div className="min-h-dvh flex bg-bgMain relative">
       {/* ====== Desktop Sidebar ====== */}
-      <aside className="hidden md:flex flex-col w-(--sidebar-width) fixed h-full z-10 border-r border-borderSoft bg-card/80 backdrop-blur-xl">
+      <aside className="hidden lg:flex flex-col w-(--sidebar-width) fixed h-full z-10 border-r border-borderSoft bg-card/80 backdrop-blur-xl">
         <div className="flex flex-col h-full">
           {/* Logo */}
           <motion.div
@@ -181,7 +181,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       </aside>
 
       {/* ====== Main Content ====== */}
-      <div className="flex-1 md:ml-(--sidebar-width) flex flex-col min-h-dvh">
+      <div className="flex-1 min-w-0 overflow-x-hidden lg:ml-(--sidebar-width) flex flex-col min-h-dvh">
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -8 }}
@@ -192,10 +192,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         >
           <div className="flex items-center gap-3 min-w-0">
             {/* Mobile logo */}
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Logo size="sm" showText={false} />
             </div>
-            <h1 className="text-base sm:text-lg font-bold text-textPrimary truncate tracking-tight md:hidden">
+            <h1 className="text-base sm:text-lg font-bold text-textPrimary truncate tracking-tight lg:hidden">
               {links.find(l => l.end ? location.pathname === l.to : location.pathname.startsWith(l.to))?.label
                 ?? (user.role === 'club' ? 'Club Portal' : 'Administration')}
             </h1>
@@ -219,7 +219,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </motion.header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 mb-bottom-nav">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 mb-bottom-nav lg:mb-0">
           <div className="max-w-7xl mx-auto w-full">
             <AnimatePresence mode="wait">
               <motion.div
@@ -236,14 +236,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </main>
 
         {/* Footer (desktop) */}
-        <footer className="hidden md:block border-t border-borderSoft/50 py-4 px-6">
+        <footer className="hidden lg:block border-t border-borderSoft/50 py-4 px-6">
           <GdgFooterCredit compact className="max-w-none" />
         </footer>
       </div>
 
       {/* ====== Mobile Bottom Navigation ====== */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card/90 backdrop-blur-2xl border-t border-borderSoft/60 shadow-[0_-4px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_30px_rgba(0,0,0,0.3)]"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-card/90 backdrop-blur-2xl border-t border-borderSoft/60 shadow-[0_-4px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_30px_rgba(0,0,0,0.3)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}
       >
         <div className="flex items-stretch justify-around px-2 py-1.5">
