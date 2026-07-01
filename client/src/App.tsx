@@ -14,6 +14,7 @@ import MyBookings from './pages/MyBookings';
 import ClubMembers from './pages/ClubMembers';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
+import AboutSBG from './pages/AboutSBG';
 import ClubsCommitteesPage from './pages/ClubsCommitteesPage';
 import ClubCommittee from './pages/ClubCommittee';
 import ManageEvents from './pages/ManageEvents';
@@ -174,6 +175,7 @@ const App: React.FC = () => {
             {/* Note: Ensure your Login component passes both the User object AND the JWT token to onLogin */}
             <Route path="/login" element={<Login onLogin={handleLogin} />} />
             <Route path="/clubs-committees" element={<ClubsCommitteesPage onGoToLogin={() => { window.location.href = '/login'; }} />} />
+            <Route path="/about-sbg" element={<AboutSBG onGoToLogin={() => { window.location.href = '/login'; }} />} />
             <Route path="*" element={<LandingPage onGoToLogin={() => { window.location.href = '/login'; }} />} />
           </Routes>
         </BrowserRouter>

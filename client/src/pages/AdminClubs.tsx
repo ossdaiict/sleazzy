@@ -10,7 +10,7 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Skeleton } from '../components/ui/skeleton';
-import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download, Plus } from 'lucide-react';
+import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download, Plus, Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
@@ -56,6 +56,28 @@ const AdminClubs: React.FC = () => {
     const [clubEvents, setClubEvents] = useState<AppEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
+    // SBG Settings State
+    const [sbgSettingsOpen, setSbgSettingsOpen] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+    const [sbgSettings, setSbgSettings] = useState({
+        sbg_constitution_link: '',
+        sbg_linkedin: '',
+        sbg_email: ''
+    });
+
+    const fetchSbgSettings = async () => {
+        try {
+            const config = await apiRequest<Record<string, string>>('/api/settings', { auth: true });
+            setSbgSettings({
+                sbg_constitution_link: config.sbg_constitution_link || '',
+                sbg_linkedin: config.sbg_linkedin || '',
+                sbg_email: config.sbg_email || ''
+            });
+        } catch (err) {
+            console.error('Failed to fetch SBG settings', err);
+        }
+    };
+
     const handleExportRoster = async () => {
         setIsExporting(true);
         try {
@@ -99,7 +121,25 @@ const AdminClubs: React.FC = () => {
 
     useEffect(() => {
         fetchClubs();
+        fetchSbgSettings();
     }, []);
+
+    const saveSbgSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            await apiRequest('/api/settings', {
+                method: 'POST',
+                auth: true,
+                body: sbgSettings
+            });
+            toastSuccess('SBG Settings saved successfully');
+            setSbgSettingsOpen(false);
+        } catch (error: any) {
+            toastError(error, 'Failed to save SBG settings');
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
 
     const saveAdd = async () => {
         if (!addFormData.name.trim() || !addFormData.email.trim() || !addFormData.password.trim()) {
@@ -216,6 +256,13 @@ const AdminClubs: React.FC = () => {
                     <p className="text-textSecondary mt-2 text-base font-medium">View, edit, or remove clubs from the system.</p>
                 </div>
                 <div className="flex items-center gap-2.5 self-start md:self-end">
+                    <Button
+                        onClick={() => setSbgSettingsOpen(true)}
+                        className="gap-1.5 rounded-xl h-10 font-semibold border border-brand/20 bg-brand/5 text-brand hover:bg-brand/10 transition-all"
+                    >
+                        <Settings size={16} />
+                        SBG Settings
+                    </Button>
                     <Button
                         onClick={() => setAddDialogOpen(true)}
                         className="gap-1.5 rounded-xl h-10 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/10 hover:shadow-brand/20"
@@ -572,6 +619,55 @@ const AdminClubs: React.FC = () => {
                     </div>
                 </SheetContent>
             </Sheet>
+
+            {/* SBG Settings Dialog */}
+            <Dialog open={sbgSettingsOpen} onOpenChange={setSbgSettingsOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>SBG Settings</DialogTitle>
+                        <DialogDescription>Manage public information shown on the About SBG page.</DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Constitution Link (URL)</Label>
+                            <Input
+                                value={sbgSettings.sbg_constitution_link}
+                                onChange={e => setSbgSettings({ ...sbgSettings, sbg_constitution_link: e.target.value })}
+                                placeholder="https://..."
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>SBG LinkedIn (URL)</Label>
+                            <Input
+                                value={sbgSettings.sbg_linkedin}
+                                onChange={e => setSbgSettings({ ...sbgSettings, sbg_linkedin: e.target.value })}
+                                placeholder="https://linkedin.com/..."
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>SBG Contact Email</Label>
+                            <Input
+                                value={sbgSettings.sbg_email}
+                                onChange={e => setSbgSettings({ ...sbgSettings, sbg_email: e.target.value })}
+                                placeholder="sbg@daiict.ac.in"
+                                type="email"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSbgSettingsOpen(false)}>Cancel</Button>
+                        <Button
+                            className="bg-brand text-white hover:bg-brandLink"
+                            onClick={saveSbgSettings}
+                            disabled={isSavingSettings}
+                        >
+                            {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </motion.div>
     );
 };

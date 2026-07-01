@@ -1,0 +1,564 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    ArrowRight, Menu, X, Mail, Phone,
+    Linkedin, Globe,
+    FileText, Users, Building2,
+    ExternalLink, Shield, Network, ListChecks,
+} from 'lucide-react';
+import { apiRequest } from '../lib/api';
+import { ThemeToggle } from '../components/theme-toggle';
+import { Button } from '../components/ui/button';
+import { Logo } from '../components/Logo';
+import { GdgFooterCredit } from '../components/GdgFooterCredit';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '../components/ui/dialog';
+
+interface Club {
+    id: string;
+    name: string;
+    email: string;
+    description?: string;
+    organization_type: string;
+    logo_url?: string;
+    instagram_url?: string;
+    linkedin_url?: string;
+    youtube_url?: string;
+    website_url?: string;
+}
+
+interface Member {
+    id: string;
+    club_id: string;
+    club_name: string;
+    full_name: string;
+    designation: string;
+    phone: string | null;
+    email: string | null;
+    organization_type: string;
+}
+
+const SBG_DESCRIPTION = `The students of DAU (Formerly DA-IICT) have constituted a self-governing democratic organization called DAU Student Body Government, to achieve the following:`;
+
+const SBG_OBJECTIVES = [
+    'Monitoring and regulation of all student activities.',
+    'Ensuring justice and equality in all aspects of student life.',
+    'Enhancing the overall development of all students.',
+];
+
+const DESIGNATION_ORDER: Record<string, number> = {
+    'Convener': 1,
+    'Dy. Convener': 2,
+    'Treasurer': 3,
+    'Secretary': 4,
+};
+
+const DESIGNATION_COLORS: Record<string, string> = {
+    'Convener': 'bg-brand/10 text-brand border-brand/20',
+    'Dy. Convener': 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    'Treasurer': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    'Secretary': 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
+};
+
+/** Reusable dashboard panel — mirrors the "panel-heading / panel-body" pattern
+ *  from the legacy SBG dashboard: a labeled header bar over left-aligned content. */
+const Panel: React.FC<{
+    icon: React.ReactNode;
+    title: string;
+    action?: React.ReactNode;
+    className?: string;
+    children: React.ReactNode;
+}> = ({ icon, title, action, className = '', children }) => (
+    <div className={`rounded-2xl border border-borderSoft/60 bg-card/80 backdrop-blur-sm ${className.includes('overflow-visible') ? 'overflow-visible' : 'overflow-hidden'} ${className}`}>
+        <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-borderSoft/50 bg-hoverSoft/20">
+            <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-8 w-8 shrink-0 rounded-lg bg-brand/10 text-brand flex items-center justify-center">
+                    {icon}
+                </span>
+                <h3 className="font-bold text-textPrimary text-sm sm:text-base truncate">{title}</h3>
+            </div>
+            {action}
+        </div>
+        <div className="p-5">{children}</div>
+    </div>
+);
+
+const AboutSBG: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogin }) => {
+    const navigate = useNavigate();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [ecModalOpen, setEcModalOpen] = useState(false);
+    const headerRef = useRef<HTMLElement>(null);
+
+    const [clubs, setClubs] = useState<Club[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
+    const [stats, setStats] = useState<Record<string, number>>({ club: 0, committee: 0, organisation: 0 });
+    const [settings, setSettings] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isMobileMenuOpen && headerRef.current && !headerRef.current.contains(event.target as Node)) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isMobileMenuOpen]);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            if (isMobileMenuOpen) setIsMobileMenuOpen(false);
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [isMobileMenuOpen]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const [clubsData, membersData, statsData, settingsData] = await Promise.all([
+                    apiRequest<Club[]>('/api/clubs'),
+                    apiRequest<Member[]>('/api/club-members/public'),
+                    apiRequest<Record<string, number>>('/api/clubs/stats'),
+                    apiRequest<Record<string, string>>('/api/settings').catch(() => ({} as Record<string, string>)),
+                ]);
+                setClubs(clubsData);
+                setMembers(membersData);
+                setStats(statsData);
+                setSettings(settingsData);
+            } catch (err) {
+                console.error('Failed to fetch about data:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const sbgClub = useMemo(() => clubs.find(c => c.organization_type === 'other' && c.name.toLowerCase().includes('sbg')), [clubs]);
+    const ecClub = useMemo(() => clubs.find(c => c.organization_type === 'other' && c.name.toLowerCase().includes('election')), [clubs]);
+
+    const sbgMembers = useMemo(() => {
+        if (!sbgClub) return [];
+        return members
+            .filter(m => m.club_id === sbgClub.id)
+            .sort((a, b) => (DESIGNATION_ORDER[a.designation] || 99) - (DESIGNATION_ORDER[b.designation] || 99));
+    }, [members, sbgClub]);
+
+    const ecMembers = useMemo(() => {
+        if (!ecClub) return [];
+        return members
+            .filter(m => m.club_id === ecClub.id)
+            .sort((a, b) => (DESIGNATION_ORDER[a.designation] || 99) - (DESIGNATION_ORDER[b.designation] || 99));
+    }, [members, ecClub]);
+
+    const totalOrgs = stats.club + stats.committee + stats.organisation;
+
+    const isActive = (path: string) => window.location.pathname === path;
+
+    const initials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2);
+
+    return (
+        <div className="min-h-screen bg-bgMain">
+            {/* ====== Header ====== */}
+            <header ref={headerRef} className="sticky top-0 z-30 bg-bgMain/80 backdrop-blur-xl border-b border-borderSoft/40">
+                <div className="flex items-center justify-between px-3 sm:px-6 py-3 max-w-7xl mx-auto">
+                    <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                        <div className="shrink-0">
+                            <Logo size="md" />
+                        </div>
+                        <div className="hidden md:flex items-center gap-1 sm:gap-2">
+                            <Button
+                                variant="ghost"
+                                onClick={() => navigate('/')}
+                                className={`rounded-xl h-10 px-2.5 sm:px-4 font-semibold transition-all text-xs sm:text-sm ${isActive('/') ? 'text-brand bg-brand/5 hover:bg-brand/10' : 'text-textSecondary hover:text-textPrimary hover:bg-hoverSoft'}`}
+                            >
+                                Home
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => navigate('/about-sbg')}
+                                className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-xs sm:text-sm"
+                            >
+                                About SBG
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => navigate('/clubs-committees')}
+                                className={`rounded-xl h-10 px-2.5 sm:px-4 font-semibold transition-all text-xs sm:text-sm ${isActive('/clubs-committees') ? 'text-brand bg-brand/5 hover:bg-brand/10' : 'text-textSecondary hover:text-textPrimary hover:bg-hoverSoft'}`}
+                            >
+                                <span className="hidden sm:inline">Clubs & Committees</span>
+                                <span className="sm:hidden">Clubs</span>
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
+                        <ThemeToggle />
+                        <div className="hidden md:block">
+                            <Button
+                                onClick={onGoToLogin}
+                                className="rounded-xl h-10 px-3 sm:px-6 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 gap-1 text-xs sm:text-sm"
+                            >
+                                <span>Sign In</span>
+                                <ArrowRight size={14} className="hidden sm:inline" />
+                            </Button>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="md:hidden p-2 rounded-xl border border-borderSoft/40 bg-hoverSoft/20 text-textPrimary hover:bg-hoverSoft/40 transition-all"
+                            aria-label="Toggle menu"
+                        >
+                            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                        </Button>
+                    </div>
+                </div>
+
+                <AnimatePresence>
+                    {isMobileMenuOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="md:hidden border-t border-borderSoft/40 bg-bgMain/95 backdrop-blur-xl overflow-hidden"
+                        >
+                            <div className="flex flex-col gap-2 p-4">
+                                <Button variant="ghost" onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }} className="justify-start rounded-xl h-11 px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-sm w-full">Home</Button>
+                                <Button variant="ghost" onClick={() => { navigate('/about-sbg'); setIsMobileMenuOpen(false); }} className="justify-start rounded-xl h-11 px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-sm w-full">About SBG</Button>
+                                <Button variant="ghost" onClick={() => { navigate('/clubs-committees'); setIsMobileMenuOpen(false); }} className="justify-start rounded-xl h-11 px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-sm w-full">Clubs & Committees</Button>
+                                <Button onClick={() => { onGoToLogin(); setIsMobileMenuOpen(false); }} className="justify-center rounded-xl h-11 px-4 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 gap-1.5 text-sm w-full mt-2">
+                                    <span>Sign In</span>
+                                    <ArrowRight size={16} />
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </header>
+
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+                {/* ====== Page title bar (left-aligned, dashboard style) ====== */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8"
+                >
+                    <div className="h-14 w-14 rounded-2xl bg-card border border-borderSoft/60 shadow-sm flex items-center justify-center shrink-0">
+                        <img src="/sbg_logo.png" alt="SBG Logo" className="w-9 h-9 object-contain" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-brand text-xs font-semibold uppercase tracking-wider mb-1">
+                            <Shield size={13} />
+                            <span>Student Body Government</span>
+                        </div>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-textPrimary tracking-tight">About SBG</h1>
+                    </div>
+                </motion.div>
+
+                {/* ====== Stats row ====== */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    {[
+                        { label: 'Clubs', value: stats.club, icon: Users, accent: 'text-blue-500', bar: 'bg-blue-500' },
+                        { label: 'Committees', value: stats.committee, icon: Shield, accent: 'text-emerald-500', bar: 'bg-emerald-500' },
+                        { label: 'Organisations', value: stats.organisation, icon: Building2, accent: 'text-amber-500', bar: 'bg-amber-500' },
+                        { label: 'Total Bodies', value: totalOrgs, icon: Globe, accent: 'text-brand', bar: 'bg-brand' },
+                    ].map((stat, i) => (
+                        <motion.div
+                            key={stat.label}
+                            initial={{ opacity: 0, y: 12 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.06 }}
+                            className="relative rounded-2xl border border-borderSoft/60 bg-card/80 p-4 sm:p-5 flex items-center justify-between gap-3 overflow-hidden"
+                        >
+                            <span className={`absolute inset-y-0 left-0 w-1 ${stat.bar}`} />
+                            <div className="min-w-0">
+                                <p className="text-2xl sm:text-3xl font-extrabold text-textPrimary leading-none">{loading ? '–' : stat.value}</p>
+                                <p className="text-xs sm:text-sm text-textMuted mt-1.5 font-medium truncate">{stat.label}</p>
+                            </div>
+                            <stat.icon size={26} className={`${stat.accent} shrink-0 opacity-80`} />
+                        </motion.div>
+                    ))}
+                </div>
+
+                {/* ====== Main dashboard grid ====== */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+                    {/* ---- Left column (wider) ---- */}
+                    <div className="lg:col-span-7 flex flex-col gap-6">
+
+                        <Panel icon={<Shield size={16} />} title="Student Body Government Vision">
+                            <p className="text-sm text-textSecondary leading-relaxed mb-4">{SBG_DESCRIPTION}</p>
+                            <ul className="space-y-2.5">
+                                {SBG_OBJECTIVES.map((obj, i) => (
+                                    <li key={i} className="flex items-start gap-3 text-sm text-textSecondary">
+                                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand shrink-0" />
+                                        <span>{obj}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </Panel>
+
+                        <Panel icon={<Network size={16} />} title="Organizational Hierarchy" className="overflow-visible">
+                            <div className="relative">
+                                {/* Vertical connection line */}
+                                <div className="absolute left-[33px] top-[45px] bottom-[30px] w-0.5 bg-gradient-to-b from-brand/40 via-borderSoft/80 to-borderSoft/80 rounded-full z-0" />
+
+                                <div className="flex flex-col gap-4 relative z-10">
+                                    {/* Dean */}
+                                    <div className="flex items-center gap-3 rounded-xl border border-brand/30 bg-card px-4 py-3 shadow-sm relative z-10">
+                                        <span className="h-9 w-9 rounded-lg bg-brand/15 text-brand flex items-center justify-center shrink-0">
+                                            <Shield size={16} />
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-textPrimary text-sm">Dean of Students</p>
+                                            <p className="text-xs text-textMuted">DAU · Reporting authority</p>
+                                        </div>
+                                    </div>
+
+                                    {/* SBG */}
+                                    <div className="relative pl-[60px]">
+                                        {/* Horizontal line with SVG Arrow */}
+                                        <div className="absolute left-[34px] top-1/2 -translate-y-1/2 w-[26px] flex items-center justify-end z-0 text-borderSoft/80">
+                                            <div className="h-0.5 w-full bg-borderSoft/80"></div>
+                                            <svg className="w-3.5 h-3.5 -ml-1 text-borderSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
+                                        <div className="flex items-center gap-3 rounded-xl border border-borderSoft/60 bg-card hover:bg-hoverSoft/20 transition-all px-4 py-3 shadow-sm relative z-10">
+                                            <span className="h-9 w-9 rounded-lg bg-card border border-brand/20 flex items-center justify-center shrink-0 p-1.5">
+                                                <img src="/sbg_logo.png" alt="SBG" className="w-full h-full object-contain" />
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-textPrimary text-sm">Student Body Government (SBG)</p>
+                                                <p className="text-xs text-textMuted">{sbgMembers.length} core members</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* EC */}
+                                    <div className="relative pl-[60px]">
+                                        {/* Horizontal line with SVG Arrow */}
+                                        <div className="absolute left-[34px] top-1/2 -translate-y-1/2 w-[26px] flex items-center justify-end z-0 text-borderSoft/80">
+                                            <div className="h-0.5 w-full bg-borderSoft/80"></div>
+                                            <svg className="w-3.5 h-3.5 -ml-1 text-borderSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
+                                        <button 
+                                            onClick={() => setEcModalOpen(true)}
+                                            className="flex items-center gap-3 rounded-xl border border-borderSoft/60 bg-card hover:bg-hoverSoft/40 hover:border-violet-500/30 transition-all px-4 py-3 text-left w-full cursor-pointer shadow-sm relative z-10"
+                                        >
+                                            <span className="h-9 w-9 rounded-lg bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                                                <Building2 size={16} />
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-textPrimary text-sm">Election Commission (EC)</p>
+                                                <p className="text-xs text-textMuted">{ecMembers.length} commissioners</p>
+                                            </div>
+                                            <ExternalLink size={14} className="text-textMuted shrink-0 opacity-50" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </Panel>
+
+                        <Panel icon={<Users size={16} />} title={`Core SBG Members (${sbgMembers.length})`}>
+                            {sbgMembers.length === 0 && !loading ? (
+                                <p className="text-sm text-textMuted">No SBG members found. Members are managed by the admin.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {sbgMembers.map((member, i) => (
+                                        <motion.div
+                                            key={member.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            whileInView={{ opacity: 1, y: 0 }}
+                                            viewport={{ once: true }}
+                                            transition={{ delay: i * 0.05 }}
+                                            className="flex items-center gap-3 rounded-xl border border-borderSoft/50 bg-hoverSoft/10 hover:bg-hoverSoft/30 hover:border-brand/30 transition-colors p-3"
+                                        >
+                                            <div className="h-11 w-11 rounded-full bg-gradient-to-br from-brand/20 to-brand/5 border border-borderSoft/60 flex items-center justify-center shrink-0">
+                                                <span className="text-sm font-bold text-brand">{initials(member.full_name)}</span>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-textPrimary text-sm truncate">{member.full_name}</p>
+                                                <span className={`inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-[10px] font-semibold border ${DESIGNATION_COLORS[member.designation] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'}`}>
+                                                    {member.designation}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {member.email && (
+                                                    <a href={`mailto:${member.email}`} className="p-2 rounded-lg text-textMuted hover:text-brand hover:bg-brand/10 transition-colors" aria-label={`Email ${member.full_name}`}>
+                                                        <Mail size={14} />
+                                                    </a>
+                                                )}
+                                                {member.phone && (
+                                                    <a href={`tel:${member.phone}`} className="p-2 rounded-lg text-textMuted hover:text-brand hover:bg-brand/10 transition-colors" aria-label={`Call ${member.full_name}`}>
+                                                        <Phone size={14} />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            )}
+                        </Panel>
+                    </div>
+
+                    {/* ---- Right column (narrower) ---- */}
+                    <div className="lg:col-span-5 flex flex-col gap-6">
+
+                        <Panel icon={<ListChecks size={16} />} title="At a Glance">
+                            <div className="flex flex-col gap-2">
+                                <button onClick={() => navigate('/clubs-committees')} className="flex items-center justify-between p-3 rounded-xl border border-borderSoft/40 bg-hoverSoft/10 hover:bg-brand/5 hover:border-brand/30 transition-all group text-left">
+                                    <span className="text-sm font-medium text-textSecondary group-hover:text-brand transition-colors">Club members</span>
+                                    <span className="font-semibold text-textPrimary">{loading ? '–' : (stats as any).members_club || 0}</span>
+                                </button>
+                                <button onClick={() => navigate('/clubs-committees')} className="flex items-center justify-between p-3 rounded-xl border border-borderSoft/40 bg-hoverSoft/10 hover:bg-brand/5 hover:border-brand/30 transition-all group text-left">
+                                    <span className="text-sm font-medium text-textSecondary group-hover:text-brand transition-colors">Committee members</span>
+                                    <span className="font-semibold text-textPrimary">{loading ? '–' : (stats as any).members_committee || 0}</span>
+                                </button>
+                                <button onClick={() => navigate('/clubs-committees')} className="flex items-center justify-between p-3 rounded-xl border border-borderSoft/40 bg-hoverSoft/10 hover:bg-brand/5 hover:border-brand/30 transition-all group text-left">
+                                    <span className="text-sm font-medium text-textSecondary group-hover:text-brand transition-colors">Organisation members</span>
+                                    <span className="font-semibold text-textPrimary">{loading ? '–' : (stats as any).members_organisation || 0}</span>
+                                </button>
+                                
+                                <div className="h-px bg-borderSoft/60 my-1 mx-2" />
+                                
+                                <div className="flex items-center justify-between p-3 rounded-xl border border-brand/20 bg-brand/5 hover:bg-brand/10 transition-all group cursor-default">
+                                    <span className="text-sm font-bold text-textPrimary group-hover:text-brand transition-colors">Total student members</span>
+                                    <span className="font-bold text-brand">{loading ? '–' : ((stats as any).members_club || 0) + ((stats as any).members_committee || 0) + ((stats as any).members_organisation || 0)}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-3 rounded-xl border border-brand/20 bg-brand/5 hover:bg-brand/10 transition-all group cursor-default">
+                                    <span className="text-sm font-bold text-textPrimary group-hover:text-brand transition-colors">Total Activities</span>
+                                    <span className="font-bold text-brand">{loading ? '–' : (stats as any).total_activities || 0}</span>
+                                </div>
+                            </div>
+                        </Panel>
+
+                        <Panel icon={<Globe size={16} />} title="Resources & Connect">
+                            <div className="flex flex-col gap-2.5">
+                                <a
+                                    href={settings.sbg_constitution_link || '#'}
+                                    target={settings.sbg_constitution_link ? '_blank' : '_self'}
+                                    rel={settings.sbg_constitution_link ? 'noreferrer' : ''}
+                                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-borderSoft/60 bg-hoverSoft/20 hover:bg-brand/5 hover:border-brand/30 transition-all group"
+                                >
+                                    <FileText size={16} className="text-brand shrink-0" />
+                                    <span className="text-sm font-medium text-textSecondary group-hover:text-brand transition-colors">SBG Constitution</span>
+                                    <ExternalLink size={12} className="ml-auto text-textMuted opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </a>
+                                {settings.sbg_linkedin && (
+                                    <a href={settings.sbg_linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-borderSoft/60 bg-hoverSoft/20 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all group">
+                                        <Linkedin size={16} className="text-textMuted group-hover:text-blue-500 transition-colors shrink-0" />
+                                        <span className="text-sm font-medium text-textSecondary group-hover:text-blue-500 transition-colors">LinkedIn</span>
+                                    </a>
+                                )}
+                                {settings.sbg_email && (
+                                    <a href={`mailto:${settings.sbg_email}`} className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-borderSoft/60 bg-hoverSoft/20 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all group">
+                                        <Mail size={16} className="text-textMuted group-hover:text-emerald-500 transition-colors shrink-0" />
+                                        <span className="text-sm font-medium text-textSecondary group-hover:text-emerald-500 transition-colors">{settings.sbg_email}</span>
+                                    </a>
+                                )}
+                            </div>
+                        </Panel>
+                    </div>
+                </div>
+            </main>
+
+            {/* ====== Footer ====== */}
+            <footer className="px-4 py-10 text-center text-xs text-textMuted border-t border-borderSoft/40 mt-10">
+                <p className="font-medium text-textSecondary">
+                    &copy; SBG {new Date().getFullYear()}
+                </p>
+                <div className="mt-4 flex justify-center">
+                    <GdgFooterCredit />
+                </div>
+            </footer>
+
+            {/* ====== EC Modal ====== */}
+            <Dialog open={ecModalOpen} onOpenChange={setEcModalOpen}>
+                <DialogContent className="max-w-md w-[95vw] rounded-2xl p-0 overflow-hidden bg-card border-borderSoft/60 shadow-2xl">
+                    <div className="p-6">
+                        <DialogHeader className="mb-6 space-y-1">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="h-10 w-10 rounded-xl bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                                    <Building2 size={20} />
+                                </span>
+                                <div>
+                                    <DialogTitle className="text-xl font-bold text-textPrimary">The Election Commission</DialogTitle>
+                                    <p className="text-sm font-medium text-violet-600 dark:text-violet-400">Independent Body</p>
+                                </div>
+                            </div>
+                        </DialogHeader>
+
+                        <div className="space-y-6">
+                            <p className="text-sm text-textSecondary leading-relaxed">
+                                An independent, autonomous body responsible for organising fair elections, keeping the process transparent, and resolving grievances raised along the way.
+                            </p>
+
+                            {/* Links */}
+                            <div className="flex flex-wrap gap-2">
+                                {ecClub?.email && (
+                                    <a href={`mailto:${ecClub.email}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-borderSoft/60 bg-hoverSoft/20 hover:bg-brand/10 hover:text-brand transition-colors">
+                                        <Mail size={14} /> Email
+                                    </a>
+                                )}
+                                {ecClub?.website_url && (
+                                    <a href={ecClub.website_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-borderSoft/60 bg-hoverSoft/20 hover:bg-brand/10 hover:text-brand transition-colors">
+                                        <Globe size={14} /> Website
+                                    </a>
+                                )}
+                                {ecClub?.linkedin_url && (
+                                    <a href={ecClub.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-borderSoft/60 bg-hoverSoft/20 hover:bg-blue-500/10 hover:text-blue-500 transition-colors">
+                                        <Linkedin size={14} /> LinkedIn
+                                    </a>
+                                )}
+                            </div>
+
+                            {/* Members */}
+                            <div>
+                                <h4 className="text-xs font-semibold text-textMuted uppercase tracking-wider mb-3">Commissioners</h4>
+                                {ecMembers.length === 0 && !loading ? (
+                                    <p className="text-sm text-textMuted">No EC members found.</p>
+                                ) : (
+                                    <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                                        {ecMembers.map(member => (
+                                            <div key={member.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-hoverSoft/20 border border-borderSoft/40">
+                                                <div className="h-9 w-9 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0">
+                                                    <span className="text-xs font-bold text-violet-600 dark:text-violet-400">{initials(member.full_name)}</span>
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-textPrimary text-sm truncate">{member.full_name}</p>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 mt-0.5 rounded-full text-[10px] font-semibold border ${DESIGNATION_COLORS[member.designation] || 'bg-slate-500/10 text-slate-500 border-slate-500/20'}`}>
+                                                        {member.designation}
+                                                    </span>
+                                                </div>
+                                                {member.email && (
+                                                    <a href={`mailto:${member.email}`} className="p-1.5 rounded-lg text-textMuted hover:text-brand hover:bg-brand/10 transition-colors shrink-0" aria-label={`Email ${member.full_name}`}>
+                                                        <Mail size={13} />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+};
+
+export default AboutSBG;

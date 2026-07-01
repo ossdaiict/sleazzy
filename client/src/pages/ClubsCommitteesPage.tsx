@@ -227,6 +227,13 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                             </Button>
                             <Button
                                 variant="ghost"
+                                onClick={() => navigate('/about-sbg')}
+                                className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-xs sm:text-sm"
+                            >
+                                About SBG
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 onClick={() => navigate('/clubs-committees')}
                                 className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-xs sm:text-sm"
                             >
@@ -283,6 +290,16 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                                     className="justify-start rounded-xl h-11 px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-sm w-full"
                                 >
                                     Home
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        navigate('/about-sbg');
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="justify-start rounded-xl h-11 px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-sm w-full"
+                                >
+                                    About SBG
                                 </Button>
                                 <Button
                                     variant="ghost"

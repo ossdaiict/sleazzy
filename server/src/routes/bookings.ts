@@ -25,6 +25,49 @@ router.get('/clubs', async (_req, res) => {
   }
 });
 
+router.get('/clubs/stats', async (_req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT organization_type, COUNT(*)::int as count
+      FROM clubs
+      WHERE organization_type != 'other'
+      GROUP BY organization_type
+    `);
+    const stats: Record<string, number> = { 
+      club: 0, committee: 0, organisation: 0, 
+      total_activities: 0,
+      members_club: 0, members_committee: 0, members_organisation: 0
+    };
+    for (const row of rows) {
+      stats[row.organization_type] = row.count;
+    }
+
+    const { rows: memberRows } = await db.query(`
+      SELECT c.organization_type, COUNT(cm.id)::int as member_count
+      FROM club_members cm
+      JOIN clubs c ON cm.club_id = c.id
+      WHERE c.organization_type != 'other'
+      GROUP BY c.organization_type
+    `);
+    for (const row of memberRows) {
+      stats[`members_${row.organization_type}`] = row.member_count;
+    }
+
+    const { rows: activityRows } = await db.query(`
+      SELECT COUNT(*)::int as count 
+      FROM events
+      WHERE event_type = 'co_curricular' OR event_type = 'open_all'
+    `);
+    if (activityRows.length > 0) {
+      stats.total_activities = activityRows[0].count;
+    }
+
+    return res.json(stats);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/clubs/my-club', authMiddleware, async (req, res) => {
   if (req.user?.role !== 'club') {
     return res.status(403).json({ error: 'Only club accounts can fetch their details' });
