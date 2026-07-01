@@ -350,9 +350,9 @@ const ClubMembers: React.FC<ClubMembersProps> = ({ user }) => {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight flex items-center gap-2 leading-tight max-w-full break-words">
+          <h1 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight flex items-center gap-2 leading-tight">
             <Users className="text-brand shrink-0" size={28} />
-            <span className="break-words whitespace-normal">{entityType} Members</span>
+            <span className="whitespace-normal">{entityType} Members</span>
           </h1>
           <p className="text-textMuted mt-1 text-sm sm:text-base">
             {isClubUser

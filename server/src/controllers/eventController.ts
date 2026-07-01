@@ -39,13 +39,21 @@ export const createEvent = async (req: Request, res: Response) => {
   }
 
   try {
-    const club = await getClubForUser(req);
-    if (!club) {
-      return res.status(404).json({ error: 'Club not found for this account' });
+    let clubId: string;
+
+    if (isAdmin && req.body.club_id) {
+      // Allow admin to create events on behalf of a specific club
+      clubId = req.body.club_id;
+    } else {
+      const club = await getClubForUser(req);
+      if (!club) {
+        return res.status(404).json({ error: 'Club not found for this account' });
+      }
+      clubId = club.id;
     }
 
     // Check if the club is blocked due to pending event reports
-    const { blocked, message: blockMessage } = await checkPendingEventReports(club.id);
+    const { blocked, message: blockMessage } = await checkPendingEventReports(clubId);
     if (blocked && !isAdmin) {
       return res.status(403).json({ error: blockMessage });
     }
@@ -58,7 +66,7 @@ export const createEvent = async (req: Request, res: Response) => {
       // Let's use the existing countCoCurricularBookings, which counts bookings, or just query events directly.
       // `countCoCurricularBookings` in `semesterUtils` actually counts events or bookings?
       // Wait, let's just use the existing function:
-      const count = await countCoCurricularBookings(club.id, semStart, semEnd);
+      const count = await countCoCurricularBookings(clubId, semStart, semEnd);
       if (count >= CO_CURRICULAR_LIMIT) {
         return res.status(400).json({
           error: `This club has already registered ${CO_CURRICULAR_LIMIT} co-curricular events this semester. The maximum allowed is ${CO_CURRICULAR_LIMIT}.`,
@@ -70,7 +78,7 @@ export const createEvent = async (req: Request, res: Response) => {
       `INSERT INTO events (club_id, name, date, venue, end_date, event_type)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [club.id, name, date, venue || null, end_date || null, finalEventType]
+      [clubId, name, date, venue || null, end_date || null, finalEventType]
     );
 
     return res.status(201).json(rows[0]);

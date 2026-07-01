@@ -76,7 +76,7 @@ export default function AdminEventReports() {
       <div className="relative z-10 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-textPrimary leading-tight max-w-full break-words">All Event Reports</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-textPrimary leading-tight">All Event Reports</h1>
             <p className="text-textMuted max-w-3xl">Manage and export all club event reports.</p>
           </div>
           {tab === 'submitted' && (
@@ -110,7 +110,7 @@ export default function AdminEventReports() {
             {reports.map(r => (
               <GlassCard key={r.id} className="p-4 space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                  <h3 className="font-semibold text-lg leading-tight break-words">
+                  <h3 className="font-semibold text-lg leading-tight">
                     {r.event_name} 
                     <span className="block sm:inline text-sm font-normal text-textMuted sm:ml-2">by {r.club_name}</span>
                   </h3>

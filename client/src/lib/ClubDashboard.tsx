@@ -422,7 +422,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <h2 className="text-xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight leading-tight max-w-full break-words">Welcome, {user.name}</h2>
+            <h2 className="text-xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight leading-tight">Welcome, {user.name}</h2>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base font-medium">Manage your events and venue bookings efficiently.</p>
           </div>
         </div>
@@ -496,7 +496,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/40 overflow-y-auto max-h-[300px]">
-                {groupBookings(myEvents, venues).map((event, index) => (
+                {groupBookings(myEvents, venues).slice(0, 5).map((event, index) => (
                   <motion.div
                     key={event.batchId || event.ids?.[0] || index}
                     initial={{ opacity: 0, x: 20 }}
@@ -560,7 +560,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/40 overflow-y-auto max-h-[300px]">
-                {registeredEvents.map((event, index) => (
+                {registeredEvents.slice(0, 5).map((event, index) => (
                   <motion.div
                     key={event.id}
                     initial={{ opacity: 0, x: 20 }}
@@ -686,24 +686,6 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         </Card>
       </motion.div>
 
-      {/* Quick Policy Reminder */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-      >
-        <Alert variant="info" className="border-brand/30 bg-primary/5 rounded-2xl">
-          <Info className="h-4 w-4 shrink-0" />
-          <AlertTitle>Booking Policy Reminder</AlertTitle>
-          <AlertDescription className="mt-1">
-            Category A venues are auto-approved for Group A clubs if no conflict exists.
-            Category B venues (Lecture Theatres) always require Admin approval.
-          </AlertDescription>
-        </Alert>
-      </motion.div>
-
-
-
       {/* Dialog for Edit About & Socials */}
       <Dialog open={isEditAboutOpen} onOpenChange={setIsEditAboutOpen}>
         <DialogContent className="sm:max-w-lg rounded-2xl bg-card border border-borderSoft text-textPrimary max-h-[90vh] overflow-y-auto">
@@ -801,18 +783,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                 </div>
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-logo" className="text-textSecondary font-semibold">
-                Logo URL <span className="text-[10px] text-textMuted ml-1">(Optional. Uses initials if empty)</span>
-              </Label>
-              <Input
-                id="edit-logo"
-                value={editForm.logo_url}
-                onChange={e => setEditForm({ ...editForm, logo_url: e.target.value })}
-                placeholder="https://example.com/logo.png"
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary h-10"
-              />
-            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="edit-member-tag" className="text-textSecondary font-semibold">
                 Member Tag <span className="text-[10px] text-textMuted ml-1">(Max 30 chars)</span>

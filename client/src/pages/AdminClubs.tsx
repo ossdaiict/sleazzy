@@ -212,7 +212,7 @@ const AdminClubs: React.FC = () => {
         >
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tighter leading-tight max-w-full break-words">Manage Clubs</h2>
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tighter leading-tight">Manage Clubs</h2>
                     <p className="text-textSecondary mt-2 text-base font-medium">View, edit, or remove clubs from the system.</p>
                 </div>
                 <div className="flex items-center gap-2.5 self-start md:self-end">

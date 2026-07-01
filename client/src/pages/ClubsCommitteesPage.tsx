@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -90,6 +90,21 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedClubForModal, setSelectedClubForModal] = useState<Club | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const headerRef = useRef<HTMLElement>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isMobileMenuOpen && headerRef.current && !headerRef.current.contains(event.target as Node)) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMobileMenuOpen]);
 
     const selectedClubMembers = useMemo(() => {
         if (!selectedClubForModal) return [];
@@ -130,6 +145,18 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
         };
         fetchData();
     }, []);
+
+    // Close mobile menu on scroll
+    useEffect(() => {
+        const handleScroll = () => {
+            if (isMobileMenuOpen) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [isMobileMenuOpen]);
 
     const filteredClubs = useMemo(() => {
         return clubs.filter(c => {
@@ -180,8 +207,8 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
     };
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-bgMain pb-16">
-            <header className="sticky top-0 z-30 bg-bgMain/80 backdrop-blur-xl border-b border-borderSoft/40">
+        <div className="min-h-screen relative overflow-clip bg-bgMain pb-16">
+            <header ref={headerRef} className="sticky top-0 z-30 bg-bgMain/80 backdrop-blur-xl border-b border-borderSoft/40">
                 <div className="flex items-center justify-between px-3 sm:px-6 py-3 max-w-7xl mx-auto">
                     {/* Left: Logo & Nav Links */}
                     <div className="flex items-center gap-3 sm:gap-6 min-w-0">

@@ -150,12 +150,12 @@ const MasterSchedule: React.FC = () => {
                 transition={{ duration: 0.4 }}
                 className="space-y-6"
             >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                     <div className="min-w-0">
-                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight max-w-full break-words">Master Schedule</h1>
+                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">Master Schedule</h1>
                         <p className="text-textMuted text-sm sm:text-base mt-1">View all venue bookings across the campus.</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto shrink-0">
                         <div className="relative flex-1 sm:w-64 min-w-[200px]">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-textMuted pointer-events-none" />
                             <Input

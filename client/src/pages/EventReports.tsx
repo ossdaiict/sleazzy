@@ -126,7 +126,7 @@ export default function EventReports() {
     <div className="relative min-h-screen">
       <GradientBackground />
       <div className="relative z-10 space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight text-textPrimary leading-tight max-w-full break-words">Event Reports</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-textPrimary leading-tight">Event Reports</h1>
         <p className="text-textMuted max-w-3xl">
           Submit reports for your past events. If reports are overdue (7 days or end of month), you will not be able to make new bookings.
         </p>

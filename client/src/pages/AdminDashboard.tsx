@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Skeleton } from '../components/ui/skeleton';
 import { Calendar, type CalendarEvent } from '../components/ui/calendar';
 import AddBookingDialog from '../components/AddBookingDialog';
+import RegisterEventDialog from '../components/RegisterEventDialog';
 import { groupBookings } from '../lib/api';
 import { getSocket, SOCKET_EVENTS } from '../lib/socket';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ const AdminDashboard: React.FC = () => {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   const [error, setError] = React.useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = React.useState(false);
 
   const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || id;
 
@@ -179,7 +181,7 @@ const AdminDashboard: React.FC = () => {
         className="space-y-6 sm:space-y-8"
       >
         <div className="min-w-0">
-          <h2 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight leading-tight max-w-full break-words">Admin Dashboard</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight leading-tight">Admin Dashboard</h2>
         </div>
         <Alert variant="destructive" className="rounded-xl">
           <AlertTriangle size={16} />
@@ -230,16 +232,26 @@ const AdminDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground tracking-tighter leading-tight max-w-full break-words">Admin Dashboard</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground tracking-tighter leading-tight">Admin Dashboard</h2>
           <p className="text-textSecondary mt-2 sm:mt-3 text-sm sm:text-base font-medium max-w-2xl">Monitor venue bookings, manage approvals, and track system performance.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              onClick={() => setAddDialogOpen(true)}
-              className="gap-2 rounded-xl h-10 font-semibold shadow-sm shadow-brand/15"
-            >
-              <Plus size={16} />
-              Add Event
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => setRegisterDialogOpen(true)}
+                className="gap-2 rounded-xl h-10 font-semibold shadow-sm border-borderSoft hover:bg-hoverSoft"
+              >
+                <Plus size={16} />
+                Register Event
+              </Button>
+              <Button
+                onClick={() => setAddDialogOpen(true)}
+                className="gap-2 rounded-xl h-10 font-semibold shadow-sm shadow-brand/15 bg-brand text-bgMain hover:opacity-90"
+              >
+                <CalendarIcon size={16} />
+                Book Venues
+              </Button>
+            </div>
             <Button
               variant="outline"
               onClick={exportAllEvents}
@@ -428,9 +440,19 @@ const AdminDashboard: React.FC = () => {
                 <CardTitle className="text-lg sm:text-xl">All Events</CardTitle>
                 <CardDescription className="mt-1">Complete list of bookings visible to admin</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap border-[1.5px] border-slate-300 dark:border-slate-600">
-                Export CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild className="hidden sm:flex whitespace-nowrap border-[1.5px]">
+                  <Link to="/admin/schedule">View All</Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap border-[1.5px] border-slate-300 dark:border-slate-600">
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+            <div className="sm:hidden px-4 pt-4 pb-2">
+               <Button variant="outline" size="sm" asChild className="w-full border-[1.5px]">
+                  <Link to="/admin/schedule">View All Events</Link>
+                </Button>
             </div>
           </CardHeader>
 
@@ -457,7 +479,7 @@ const AdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {calendarEvents.map((evt, index) => (
+                    {calendarEvents.slice(0, 5).map((evt, index) => (
                       <motion.tr
                         key={evt.batchId || evt.ids[0]}
                         initial={{ opacity: 0, x: -20 }}
@@ -547,7 +569,7 @@ const AdminDashboard: React.FC = () => {
                   <p className="text-textMuted">No pending requests.</p>
                 </div>
               ) : (
-                pendingRequests.map((req, index) => (
+                pendingRequests.slice(0, 5).map((req, index) => (
                   <motion.div
                     key={req.batchId || req.ids?.[0] || index}
                     initial={{ opacity: 0, x: -20 }}
@@ -617,6 +639,12 @@ const AdminDashboard: React.FC = () => {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         onCreated={fetchData}
+      />
+      <RegisterEventDialog
+        isOpen={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        currentUser={{ role: 'admin' } as any}
+        onEventCreated={fetchData}
       />
     </motion.div>
   );

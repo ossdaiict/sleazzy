@@ -9,6 +9,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Info, AlertTriangle } from 'lucide-react';
 import { User, AppEvent } from '../types';
 import { cn } from '../lib/utils';
+import { DatePicker } from './ui/date-picker';
+import { TimePicker } from './ui/time-picker';
+import { format, parseISO } from 'date-fns';
 
 interface RegisterEventDialogProps {
   isOpen: boolean;
@@ -36,6 +39,8 @@ const RegisterEventDialog: React.FC<RegisterEventDialogProps> = ({
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [eventWarnings, setEventWarnings] = useState({ timeline: '', limit: '' });
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
+  const [allClubs, setAllClubs] = useState<{ id: string; name: string }[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -45,7 +50,20 @@ const RegisterEventDialog: React.FC<RegisterEventDialogProps> = ({
         .then(setVenues)
         .catch(console.error);
     }
-  }, [isOpen, venues.length]);
+    
+    if (isOpen && currentUser?.role === 'admin' && allClubs.length === 0) {
+      apiRequest<any[]>('/api/clubs')
+        .then((clubs) => {
+          setAllClubs(clubs);
+          const sbg = clubs.find((c) =>
+            c.name.toLowerCase().includes('sbg') ||
+            c.name.toLowerCase().includes('student body')
+          );
+          setSelectedClubId(sbg?.id || clubs[0]?.id || null);
+        })
+        .catch(console.error);
+    }
+  }, [isOpen, venues.length, currentUser?.role, allClubs.length]);
 
   // Reset form when opened
   useEffect(() => {
@@ -107,7 +125,8 @@ const RegisterEventDialog: React.FC<RegisterEventDialogProps> = ({
           date: startDateTime.toISOString(),
           end_date: endDateTime.toISOString(),
           venue: newEvent.venue.join(', '),
-          event_type: newEvent.event_type
+          event_type: newEvent.event_type,
+          ...(currentUser?.role === 'admin' && selectedClubId ? { club_id: selectedClubId } : {})
         }
       });
       toastSuccess('Event registered successfully');
@@ -140,6 +159,24 @@ const RegisterEventDialog: React.FC<RegisterEventDialogProps> = ({
         </div>
 
         <div className="grid gap-4 py-4">
+          {currentUser?.role === 'admin' && (
+            <div className="grid gap-2">
+              <Label className="text-textSecondary">Organizing Club</Label>
+              <Select value={selectedClubId || ''} onValueChange={setSelectedClubId}>
+                <SelectTrigger className="bg-bgMain border-borderSoft text-textPrimary">
+                  <SelectValue placeholder="Select club..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allClubs.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label htmlFor="event-name-dialog" className="text-textSecondary">Event Name *</Label>
             <Input
@@ -165,47 +202,39 @@ const RegisterEventDialog: React.FC<RegisterEventDialogProps> = ({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="event-sdate-dialog" className="text-textSecondary">Start Date *</Label>
-              <Input
-                id="event-sdate-dialog"
-                type="date"
-                value={newEvent.startDate}
-                onChange={e => setNewEvent({ ...newEvent, startDate: e.target.value })}
-                min={todayStr}
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+              <Label className="text-textSecondary">Start Date *</Label>
+              <DatePicker
+                date={newEvent.startDate ? parseISO(newEvent.startDate) : undefined}
+                setDate={d => setNewEvent({ ...newEvent, startDate: d ? format(d, 'yyyy-MM-dd') : '' })}
+                minDate={new Date(todayStr)}
+                className="bg-bgMain h-10 rounded-xl"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="event-stime-dialog" className="text-textSecondary">Start Time</Label>
-              <Input
-                id="event-stime-dialog"
-                type="time"
+              <Label className="text-textSecondary">Start Time</Label>
+              <TimePicker
                 value={newEvent.startTime}
-                onChange={e => setNewEvent({ ...newEvent, startTime: e.target.value })}
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+                onChange={v => setNewEvent({ ...newEvent, startTime: v })}
+                className="bg-bgMain h-10 rounded-xl"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="event-edate-dialog" className="text-textSecondary">End Date</Label>
-              <Input
-                id="event-edate-dialog"
-                type="date"
-                value={newEvent.endDate}
-                onChange={e => setNewEvent({ ...newEvent, endDate: e.target.value })}
-                min={newEvent.startDate || todayStr}
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+              <Label className="text-textSecondary">End Date</Label>
+              <DatePicker
+                date={newEvent.endDate ? parseISO(newEvent.endDate) : undefined}
+                setDate={d => setNewEvent({ ...newEvent, endDate: d ? format(d, 'yyyy-MM-dd') : '' })}
+                minDate={newEvent.startDate ? parseISO(newEvent.startDate) : new Date(todayStr)}
+                className="bg-bgMain h-10 rounded-xl"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="event-etime-dialog" className="text-textSecondary">End Time</Label>
-              <Input
-                id="event-etime-dialog"
-                type="time"
+              <Label className="text-textSecondary">End Time</Label>
+              <TimePicker
                 value={newEvent.endTime}
-                onChange={e => setNewEvent({ ...newEvent, endTime: e.target.value })}
-                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary"
+                onChange={v => setNewEvent({ ...newEvent, endTime: v })}
+                className="bg-bgMain h-10 rounded-xl"
               />
             </div>
           </div>
