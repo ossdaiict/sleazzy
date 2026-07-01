@@ -96,14 +96,14 @@ export async function sendPasswordResetEmail(
   }
 
   const title = 'Password Reset Request';
-  const subject = 'Password Reset - Sleazzy';
-  const message = `Dear User,\n\nWe received a request to reset your password. Your 6-digit verification code is:\n\n${tempPassword}\n\nThis code will expire in 5 minutes. Please use this code to verify your identity and reset your password.\n\nRegards,\nSleazzy Team`;
+  const subject = 'Password Reset - SBG Team';
+  const message = `Dear User,\n\nWe received a request to reset your password. Your 6-digit verification code is:\n\n${tempPassword}\n\nThis code will expire in 5 minutes. Please use this code to verify your identity and reset your password.\n\nRegards,\nSBG Team`;
   const messageHtml = `
     <p>Dear User,</p>
     <p>We received a request to reset your password. Your 6-digit verification code is:</p>
     <h3 style="background:#f4f4f4; padding:10px; display:inline-block; font-family:monospace; border-radius:4px; margin: 10px 0; letter-spacing: 4px;">${tempPassword}</h3>
     <p><strong>This code will expire in 5 minutes.</strong> Please use this code to verify your identity and reset your password.</p>
-    <p>Regards,<br/>Sleazzy Team</p>
+    <p>Regards,<br/>SBG Team</p>
   `;
 
   const templateParams = {
@@ -148,9 +148,45 @@ export async function sendBookingApprovedEmailToClub(
   if (!isApprovalEmailJsConfigured()) return { sent: false };
 
   const title = 'Booking Approved';
-  const subject = 'Booking Approved - Sleazzy';
+  const subject = 'Booking Approved - SBG Team';
   const message = `Your booking for ${eventName} at ${venueName} on ${date} from ${startTime} to ${endTime} has been approved.`;
   const messageHtml = `<p>Your booking for <strong>${eventName}</strong> at <strong>${venueName}</strong> on <strong>${date}</strong> from <strong>${startTime}</strong> to <strong>${endTime}</strong> has been approved.</p>`;
+
+  const templateParams = {
+    to_email: clubEmail,
+    from_email: APPROVAL_MAIL || '',
+    title,
+    subject,
+    message,
+    message_html: messageHtml,
+    booking_count: '1',
+  };
+
+  try {
+    await emailjs.send(APPROVAL_EMAILJS_SERVICE_ID!, APPROVAL_EMAILJS_TEMPLATE_ID!, templateParams, {
+      publicKey: APPROVAL_EMAILJS_PUBLIC_KEY!,
+      privateKey: APPROVAL_EMAILJS_PRIVATE_KEY!,
+    });
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, error: (err as Error).message };
+  }
+}
+
+export async function sendBookingCancelledEmailToClub(
+  clubEmail: string,
+  venueName: string,
+  eventName: string,
+  date: string,
+  startTime: string,
+  endTime: string
+): Promise<{ sent: boolean; error?: string }> {
+  if (!isApprovalEmailJsConfigured()) return { sent: false };
+
+  const title = 'Booking Cancelled';
+  const subject = 'Booking Cancelled - SBG Team';
+  const message = `Your approved booking for ${eventName} at ${venueName} on ${date} from ${startTime} to ${endTime} has been cancelled by the admin.`;
+  const messageHtml = `<p>Your approved booking for <strong>${eventName}</strong> at <strong>${venueName}</strong> on <strong>${date}</strong> from <strong>${startTime}</strong> to <strong>${endTime}</strong> has been cancelled by the admin.</p>`;
 
   const templateParams = {
     to_email: clubEmail,
@@ -183,7 +219,7 @@ export async function sendEventReportReminderEmail(
   if (!isReminderEmailJsConfigured()) return { sent: false };
 
   const title = 'Event Report Reminder';
-  const subject = 'Event Report Reminder - Sleazzy';
+  const subject = 'Event Report Reminder - SBG Team';
   const message = `This is a reminder to submit the event report for your recent event: ${eventName}.`;
   const messageHtml = `<p>This is a reminder to submit the event report for your recent event: <strong>${eventName}</strong>.</p>`;
 
@@ -201,6 +237,63 @@ export async function sendEventReportReminderEmail(
     await emailjs.send(REMINDER_EMAILJS_SERVICE_ID!, REMINDER_EMAILJS_TEMPLATE_ID!, templateParams, {
       publicKey: REMINDER_EMAILJS_PUBLIC_KEY!,
       privateKey: REMINDER_EMAILJS_PRIVATE_KEY!,
+    });
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, error: (err as Error).message };
+  }
+}
+
+/**
+ * Send a bulk booking processed email to the club.
+ */
+export async function sendBulkBookingProcessedEmail(
+  clubEmail: string,
+  eventName: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  approvedVenues: string[],
+  rejectedVenues: string[]
+): Promise<{ sent: boolean; error?: string }> {
+  if (!isApprovalEmailJsConfigured()) return { sent: false };
+
+  const title = 'Booking Processed';
+  const subject = 'Booking Processed - SBG Team';
+  
+  let htmlVenues = '';
+  if (approvedVenues.length > 0) {
+    htmlVenues += `<p><strong>Approved Venues:</strong></p><ul>`;
+    approvedVenues.forEach(v => { htmlVenues += `<li style="color: green;">${v}</li>`; });
+    htmlVenues += `</ul>`;
+  }
+  if (rejectedVenues.length > 0) {
+    htmlVenues += `<p><strong>Rejected Venues:</strong></p><ul>`;
+    rejectedVenues.forEach(v => { htmlVenues += `<li style="color: red;">${v}</li>`; });
+    htmlVenues += `</ul>`;
+  }
+
+  const message = `Your booking for ${eventName} on ${date} from ${startTime} to ${endTime} has been processed.`;
+  const messageHtml = `
+    <p>Your booking for <strong>${eventName}</strong> on <strong>${date}</strong> from <strong>${startTime}</strong> to <strong>${endTime}</strong> has been processed by the admin.</p>
+    ${htmlVenues}
+    <p>Please check your dashboard for more details.</p>
+  `;
+
+  const templateParams = {
+    to_email: clubEmail,
+    from_email: APPROVAL_MAIL || '',
+    title,
+    subject,
+    message,
+    message_html: messageHtml,
+    booking_count: (approvedVenues.length + rejectedVenues.length).toString(),
+  };
+
+  try {
+    await emailjs.send(APPROVAL_EMAILJS_SERVICE_ID!, APPROVAL_EMAILJS_TEMPLATE_ID!, templateParams, {
+      publicKey: APPROVAL_EMAILJS_PUBLIC_KEY!,
+      privateKey: APPROVAL_EMAILJS_PRIVATE_KEY!,
     });
     return { sent: true };
   } catch (err) {

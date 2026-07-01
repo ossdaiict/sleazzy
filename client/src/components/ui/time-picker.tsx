@@ -48,7 +48,7 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                     <span>{formatDisplayTime(value)}</span>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 rounded-xl border-borderSoft bg-bgMain p-3 shadow-lg" align="start">
+            <PopoverContent className="w-72 rounded-xl border-borderSoft bg-popover p-3 shadow-lg z-[100]" align="start">
                 <div className="space-y-3">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">Select Time</p>
@@ -59,7 +59,7 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                         type="time"
                         value={value || ""}
                         onChange={(event) => onChange(event.target.value)}
-                        className="h-11 rounded-lg text-base font-semibold [color-scheme:light] dark:[color-scheme:dark]"
+                        className="h-11 rounded-lg bg-bgMain border border-borderSoft text-textPrimary text-base font-semibold px-3 [color-scheme:light] dark:[color-scheme:dark]"
                     />
 
                     <div className="grid grid-cols-4 gap-2">

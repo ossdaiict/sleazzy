@@ -216,6 +216,11 @@ router.delete('/my-bookings/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Booking not found or not owned by you' });
     }
     
+    const booking = checkRes.rows[0];
+    if (new Date(booking.start_time) <= new Date()) {
+      return res.status(400).json({ error: 'Cannot cancel a booking after its start time has passed.' });
+    }
+    
     // Optionally: only allow deleting if it's pending, or let them cancel approved ones too.
     // The prompt just says "functionality of deleting events and bookings must be provided".
     await db.query('DELETE FROM bookings WHERE id = $1 AND club_id = $2', [id, clubId]);

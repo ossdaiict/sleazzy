@@ -314,17 +314,17 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   );
 
   // Normalize to local midnight so DayPicker's modifier date-matching works correctly
-  const eventDates = React.useMemo(() => getEventDates(visibleGlobalEvents), [getEventDates, visibleGlobalEvents]);
-  const myEventDates = React.useMemo(() => getEventDates(myEvents), [getEventDates, myEvents]);
+  const eventDates = React.useMemo(() => getEventDates(visibleGlobalEvents.filter(e => e.status === 'approved')), [getEventDates, visibleGlobalEvents]);
+  const myEventDates = React.useMemo(() => getEventDates(myEvents.filter(e => e.status === 'approved')), [getEventDates, myEvents]);
 
-  // Show approved campus bookings plus this club's own bookings, including closed-club events for booking awareness.
-  const calendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(visibleGlobalEvents, venues)), [toCalendarEvents, visibleGlobalEvents, venues]);
-  const myCalendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(myEvents, venues)), [toCalendarEvents, myEvents, venues]);
+  // Show approved campus bookings plus this club's own approved bookings in the calendar views.
+  const calendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(visibleGlobalEvents.filter(e => e.status === 'approved'), venues)), [toCalendarEvents, visibleGlobalEvents, venues]);
+  const myCalendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(myEvents.filter(e => e.status === 'approved'), venues)), [toCalendarEvents, myEvents, venues]);
   const activeCalendar = React.useMemo(() => {
     if (calendarView === 'club') {
       return {
         title: 'My Club Calendar',
-        sourceEvents: myEvents,
+        sourceEvents: myEvents.filter(e => e.status === 'approved'),
         calendarEvents: myCalendarEventsWithVenue,
         eventDates: myEventDates,
         emptyMessage: 'No club events scheduled for this day.',
@@ -333,7 +333,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
 
     return {
       title: 'Global Event Schedule',
-      sourceEvents: visibleGlobalEvents,
+      sourceEvents: visibleGlobalEvents.filter(e => e.status === 'approved'),
       calendarEvents: calendarEventsWithVenue,
       eventDates,
       emptyMessage: 'No events scheduled for this day.',

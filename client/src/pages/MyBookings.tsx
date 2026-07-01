@@ -75,7 +75,7 @@ const MyBookings: React.FC = () => {
   }, [myBookings, venues]);
 
   const isPastEvent = (booking: GroupedBooking) => {
-    return new Date(booking.endTimeISO) < new Date();
+    return new Date(booking.endTimeISO) < new Date() || booking.status === 'rejected';
   };
 
   const openExtraRoomDialog = (booking: GroupedBooking) => {

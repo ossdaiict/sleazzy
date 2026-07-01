@@ -14,7 +14,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="sleazzy-theme">
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="sbg-theme">
       <App />
       <Toaster
         richColors

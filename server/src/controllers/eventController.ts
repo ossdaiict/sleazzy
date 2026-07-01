@@ -222,6 +222,7 @@ export const getPublicEvents = async (_req: Request, res: Response) => {
       LEFT JOIN clubs c ON e.club_id = c.id
       WHERE e.event_type IN ('open_all', 'co_curricular')
         AND e.end_date >= NOW()
+        AND EXISTS (SELECT 1 FROM bookings b WHERE b.event_id = e.id AND b.status = 'approved')
       ORDER BY e.date ASC
     `);
 

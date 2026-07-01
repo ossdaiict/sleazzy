@@ -42,7 +42,7 @@ interface LayoutProps {
 const adminLinks = [
   { to: '/', label: 'Dashboard', icon: ShieldCheck, end: true },
   { to: '/admin/requests', label: 'Requests', icon: ClipboardList },
-  { to: '/admin/schedule', label: 'Schedule', icon: Layers },
+
   { to: '/admin/clubs', label: 'Clubs', icon: Users },
   { to: '/admin/venues', label: 'Venues', icon: MapPin },
   { to: '/admin/event-reports', label: 'Event Reports', icon: FileText },

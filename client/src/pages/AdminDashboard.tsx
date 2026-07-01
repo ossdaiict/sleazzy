@@ -34,6 +34,7 @@ const AdminDashboard: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [registerDialogOpen, setRegisterDialogOpen] = React.useState(false);
+  const [isProcessingAction, setIsProcessingAction] = React.useState(false);
 
   const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || id;
 
@@ -122,17 +123,35 @@ const AdminDashboard: React.FC = () => {
   }, [fetchData]);
 
   const handleAction = async (bookingIds: string[], status: 'approved' | 'rejected') => {
+    if (isProcessingAction) return;
+    setIsProcessingAction(true);
     try {
-      await Promise.all(bookingIds.map(id => apiRequest(`/api/admin/bookings/${id}/status`, {
+      await apiRequest('/api/admin/bookings/bulk-status', {
         method: 'PATCH',
         auth: true,
-        body: { status }
-      })));
+        body: { ids: bookingIds, status }
+      });
       toastSuccess(`Booking(s) ${status} successfully`);
       fetchData();
     } catch (err) {
       console.error(`Failed to ${status} booking(s):`, err);
       toastError(err, `Failed to ${status} booking(s). Please try again.`);
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleSendEmail = async (batchId: string | undefined, eventId: string | undefined) => {
+    try {
+      await apiRequest('/api/admin/bookings/send-email', {
+        method: 'POST',
+        auth: true,
+        body: { batchId, eventId },
+      });
+      toastSuccess('Status email sent to the club successfully!');
+    } catch (err) {
+      console.error('Failed to send email:', err);
+      toastError(err, 'Failed to send email. Please try again.');
     }
   };
 
@@ -145,7 +164,7 @@ const AdminDashboard: React.FC = () => {
   const getEventsForDate = (date: Date) => {
     return calendarEvents.filter(e => {
       const eDate = new Date(e.date);
-      return isSameDay(eDate, date);
+      return isSameDay(eDate, date) && e.status === 'approved';
     });
   };
 
@@ -153,7 +172,7 @@ const AdminDashboard: React.FC = () => {
 
   // Normalize to local midnight so DayPicker's modifier matching works
   const eventDates = React.useMemo(() =>
-    calendarEvents.map(e => {
+    calendarEvents.filter(e => e.status === 'approved').map(e => {
       const d = new Date(e.date);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     }),
@@ -161,7 +180,7 @@ const AdminDashboard: React.FC = () => {
   );
 
   const calendarEventsWithVenue: CalendarEvent[] = React.useMemo(() =>
-    calendarEvents.map(e => ({
+    calendarEvents.filter(e => e.status === 'approved').map(e => ({
       eventName: e.eventName,
       clubName: e.clubName,
       date: e.date,
@@ -442,7 +461,7 @@ const AdminDashboard: React.FC = () => {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" asChild className="hidden sm:flex whitespace-nowrap border-[1.5px]">
-                  <Link to="/admin/schedule">View All</Link>
+                  <Link to="/admin/requests">View All</Link>
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap border-[1.5px] border-slate-300 dark:border-slate-600">
                   Export CSV
@@ -451,7 +470,7 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="sm:hidden px-4 pt-4 pb-2">
                <Button variant="outline" size="sm" asChild className="w-full border-[1.5px]">
-                  <Link to="/admin/schedule">View All Events</Link>
+                  <Link to="/admin/requests">View All Events</Link>
                 </Button>
             </div>
           </CardHeader>
@@ -609,10 +628,21 @@ const AdminDashboard: React.FC = () => {
 
                       <div className="flex items-center gap-2 sm:gap-3">
                         <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => handleSendEmail(req.batchId, undefined)} // For dashboard pending requests we only have batchId easily available in req
+                          title="Send an email to the club with the current status of all venues in this booking"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                          <span className="hidden sm:inline">Send Mail</span>
+                        </Button>
+                        <Button
                           variant="destructive"
                           size="sm"
                           className="flex items-center gap-2"
                           onClick={() => handleAction(req.ids, 'rejected')}
+                          disabled={isProcessingAction}
                         >
                           <XCircle size={16} />
                           <span className="hidden sm:inline">Reject</span>
@@ -621,6 +651,7 @@ const AdminDashboard: React.FC = () => {
                           size="sm"
                           className="flex items-center gap-2"
                           onClick={() => handleAction(req.ids, 'approved')}
+                          disabled={isProcessingAction}
                         >
                           <CheckCircle size={16} />
                           <span className="hidden sm:inline">Approve</span>

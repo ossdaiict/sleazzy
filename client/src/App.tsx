@@ -8,7 +8,7 @@ import AdminVenues from './pages/AdminVenues';
 import BookSlot from './pages/BookSlot';
 import AdminClubs from './pages/AdminClubs';
 import AdminRequests from './pages/AdminRequests';
-import MasterSchedule from './pages/MasterSchedule';
+
 import PolicyPage from './pages/PolicyPage';
 import MyBookings from './pages/MyBookings';
 import ClubMembers from './pages/ClubMembers';
@@ -23,11 +23,10 @@ import AdminEventReports from './pages/AdminEventReports';
 import Archives from './pages/Archives';
 import { User } from './types';
 import { apiRequest } from './lib/api';
-import { toastError } from './lib/toast';
 import { getSocket, SOCKET_EVENTS } from './lib/socket';
 
-const USER_STORAGE_KEY = 'sleazzy_user_profile';
-const TOKEN_KEY = 'jwt_token'; // New key for standard JWT storage
+const USER_STORAGE_KEY = 'sbg_user_profile';
+const TOKEN_KEY = 'jwt_token'; 
 
 const getCachedUser = (): User | null => {
   if (typeof window === 'undefined') return null;
@@ -199,7 +198,7 @@ const App: React.FC = () => {
             <Route path="/policy" element={<PolicyPage />} />
 
             <Route path="/admin/requests" element={<AdminRequests />} />
-            <Route path="/admin/schedule" element={<MasterSchedule />} />
+
             <Route path="/admin/clubs" element={user.role === 'admin' ? <AdminClubs /> : <Navigate to="/" replace />} />
             <Route path="/admin/venues" element={user.role === 'admin' ? <AdminVenues /> : <Navigate to="/" replace />} />
             <Route path="/admin/event-reports" element={user.role === 'admin' ? <AdminEventReports /> : <Navigate to="/" replace />} />

@@ -336,6 +336,31 @@ export const createBooking = async (req: Request, res: Response) => {
         clubId,
       });
       io.emit('events:updated');
+
+      const { sendBulkBookingProcessedEmail } = await import('../services/email');
+      const clubEmailRows = await db.query('SELECT email FROM clubs WHERE id = $1', [clubId]);
+      const clubEmail = clubEmailRows.rows[0]?.email;
+      
+      if (clubEmail) {
+        const approvedVenues = approvedBookings.map((b) => {
+          const venue = venues.find((v) => v.id === b.venue_id);
+          return venue?.name || 'Venue';
+        });
+        
+        const date = new Date(approvedBookings[0].start_time).toLocaleDateString('en-IN');
+        const startStr = new Date(approvedBookings[0].start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const endStr = new Date(approvedBookings[0].end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        
+        await sendBulkBookingProcessedEmail(
+          clubEmail,
+          eventName,
+          date,
+          startStr,
+          endStr,
+          approvedVenues,
+          []
+        );
+      }
     }
 
     return res.status(201).json(createdBookings);
