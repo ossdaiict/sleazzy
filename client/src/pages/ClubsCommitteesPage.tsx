@@ -316,20 +316,20 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
 
             {/* ====== Club Committee Roster Modal ====== */}
             <Dialog open={!!selectedClubForModal} onOpenChange={(open) => !open && setSelectedClubForModal(null)}>
-                <DialogContent className="sm:max-w-xl rounded-2xl max-h-[85vh] overflow-y-auto bg-card">
-                    <DialogHeader className="border-b border-borderSoft/40 pb-4 flex flex-row items-center gap-4 space-y-0">
+                <DialogContent className="w-[95vw] max-w-[95vw] sm:w-full sm:max-w-xl p-4 sm:p-6 rounded-2xl max-h-[85vh] overflow-y-auto bg-card">
+                    <DialogHeader className="border-b border-borderSoft/40 pb-4 flex flex-row items-center gap-3 sm:gap-4 space-y-0">
                         <Avatar className={cn("h-14 w-14 border border-borderSoft rounded-2xl shrink-0 bg-white", getLogoBgClass(selectedClubForModal?.name || ''))}>
                             <AvatarImage src={selectedClubForModal?.logo_url || getClubLogoUrl(selectedClubForModal?.name || '') || ''} alt={selectedClubForModal?.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
                             <AvatarFallback className="bg-brand text-white font-bold text-lg rounded-2xl flex items-center justify-center">
                                 {selectedClubForModal?.name.charAt(0).toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0">
-                            <DialogTitle className="text-xl font-bold text-textPrimary truncate">
+                        <div className="min-w-0 flex-1">
+                            <DialogTitle className="text-xl font-bold text-textPrimary leading-tight">
                                 {selectedClubForModal?.name}
                             </DialogTitle>
                             <DialogDescription className="text-xs text-textMuted mt-1">
-                                Official Campus Committee Roster &bull; Group {selectedClubForModal?.group_category}
+                                Official Campus Committee Roster
                             </DialogDescription>
                         </div>
                     </DialogHeader>
@@ -453,13 +453,13 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                         </TabsContent>
 
                         {selectedClubForModal?.email && (
-                            <div className="pt-4 border-t border-borderSoft/40 flex items-center justify-between">
+                            <div className="pt-4 border-t border-borderSoft/40 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0 text-center sm:text-left">
                                 <span className="text-xs text-textMuted">Have questions or want to join?</span>
                                 <Button
                                     onClick={() => {
                                         window.location.href = `mailto:${selectedClubForModal.email}`;
                                     }}
-                                    className="rounded-xl h-9 px-4 text-xs font-semibold bg-brand text-white hover:bg-brandLink"
+                                    className="rounded-xl h-9 px-4 text-xs font-semibold bg-brand text-white hover:bg-brandLink w-full sm:w-auto"
                                 >
                                     <Mail size={13} className="mr-1.5" />
                                     Email Contact
@@ -516,10 +516,7 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                                                 </Avatar>
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <h3 className="font-bold text-base text-textPrimary tracking-tight line-clamp-1 group-hover:text-brand transition-colors">{club.name}</h3>
-                                                        <span className="shrink-0 inline-flex items-center rounded-full border border-brand/20 bg-brand/5 px-2 py-0.5 text-[9px] font-semibold text-brand">
-                                                            Group {club.group_category}
-                                                        </span>
+                                                        <h3 className="font-bold text-base text-textPrimary tracking-tight group-hover:text-brand transition-colors">{club.name}</h3>
                                                     </div>
                                                     <p className="text-[11px] text-textMuted font-medium mt-0.5">
                                                         {club.name.toLowerCase().includes('committee') ? 'Official student committee' : 'Official student organization'}
