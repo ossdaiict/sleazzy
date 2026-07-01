@@ -329,7 +329,7 @@ const ClubsCommitteesPage: React.FC<{ onGoToLogin: () => void }> = ({ onGoToLogi
                                 {selectedClubForModal?.name}
                             </DialogTitle>
                             <DialogDescription className="text-xs text-textMuted mt-1">
-                                Official Campus Committee Roster &bull; Group {selectedClubForModal?.group_category}
+                                Official Campus Committee Roster
                             </DialogDescription>
                         </div>
                     </DialogHeader>
