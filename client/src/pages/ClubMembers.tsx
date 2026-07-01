@@ -369,7 +369,7 @@ const ClubMembers: React.FC<ClubMembersProps> = ({ user }) => {
                 <SelectTrigger id="club-select" className="h-9 w-full sm:w-[200px] bg-card border-borderSoft focus:ring-brand/30">
                   <SelectValue placeholder={`Select a ${entityType.toLowerCase()}`} />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-borderSoft max-h-[300px]">
+                <SelectContent className="bg-popover border-borderSoft max-h-[300px]">
                   {clubs.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
