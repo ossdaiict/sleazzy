@@ -243,6 +243,7 @@ app.get('/api/health', (_req, res) => {
 import eventsRoutes from './routes/events';
 import eventReportsRoutes from './routes/eventReports';
 import archivesRoutes from './routes/archives';
+import settingsRoutes from './routes/settings';
 import { startCronJobs } from './services/emailReminders';
 
 app.use('/api', bookingsRoutes);
@@ -253,6 +254,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/event-reports', eventReportsRoutes);
 app.use('/api/archives', archivesRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Start background cron jobs
 startCronJobs();

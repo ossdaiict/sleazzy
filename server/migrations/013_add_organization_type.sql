@@ -1,0 +1,1 @@
+ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS organization_type VARCHAR(50) NOT NULL DEFAULT 'club';

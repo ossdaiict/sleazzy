@@ -5,12 +5,12 @@ import { getClubForUser } from '../utils/clubAuth';
 export const getArchivedEvents = async (req: Request, res: Response) => {
   try {
     const userRole = (req as any).user?.role;
-    const isSuperAdmin = userRole === 'super_admin';
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
     let query = 'SELECT * FROM archived_events';
     let params: any[] = [];
 
-    if (!isSuperAdmin) {
+    if (!isAdmin) {
       const club = await getClubForUser(req);
       if (!club) {
         return res.status(404).json({ error: 'Club not found for this account' });

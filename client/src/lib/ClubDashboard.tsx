@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
-import { getClubLogoUrl, getLogoBgClass } from './logos';
+
 import { cn } from '@/lib/utils';
 
 interface ClubDashboardProps {
@@ -167,6 +167,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     youtube_url: string;
     website_url: string;
     logo_url?: string;
+    member_tag?: string;
   } | null>(null);
   const [isEditAboutOpen, setIsEditAboutOpen] = React.useState(false);
   const [isSavingAbout, setIsSavingAbout] = React.useState(false);
@@ -178,6 +179,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
     youtube_url: '',
     website_url: '',
     logo_url: '',
+    member_tag: '',
   });
 
   const isCommittee = user.name.toLowerCase().includes('committee');
@@ -211,6 +213,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         youtube_url: myClubData?.youtube_url || '',
         website_url: myClubData?.website_url || '',
         logo_url: myClubData?.logo_url || '',
+        member_tag: myClubData?.member_tag || '',
       });
     } catch (err) {
       console.error('Failed to fetch events:', err);
@@ -235,7 +238,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
       });
       toast.success('Club profile updated successfully');
       setIsEditAboutOpen(false);
-      fetchEvents();
+      window.location.reload();
     } catch (error) {
       console.error('Failed to update club profile:', error);
       toast.error('Failed to update club profile');
@@ -297,31 +300,37 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
   );
 
   const toCalendarEvents = React.useCallback((events: any[]): CalendarEvent[] =>
-    events.map(e => ({
-      eventName: e.eventName,
-      clubName: e.clubName,
-      date: e.date,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      venueName: e.venueName || getVenueName(e.venueId || e.venueIds?.[0]),
-      status: e.status,
-      eventType: e.eventType,
-    })),
+    events.map(e => {
+      // For partial bookings, only show the names of approved venues
+      const approvedVenueName = e.status === 'partial'
+        ? (e.bookings || []).filter((b: any) => b.status === 'approved').map((b: any) => getVenueName(b.venueId)).join(', ')
+        : (e.venueName || getVenueName(e.venueId || e.venueIds?.[0]));
+      return {
+        eventName: e.eventName,
+        clubName: e.clubName,
+        date: e.date,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        venueName: approvedVenueName || e.venueName || getVenueName(e.venueId || e.venueIds?.[0]),
+        status: e.status,
+        eventType: e.eventType,
+      };
+    }),
     [venues]
   );
 
   // Normalize to local midnight so DayPicker's modifier date-matching works correctly
-  const eventDates = React.useMemo(() => getEventDates(visibleGlobalEvents), [getEventDates, visibleGlobalEvents]);
-  const myEventDates = React.useMemo(() => getEventDates(myEvents), [getEventDates, myEvents]);
+  const eventDates = React.useMemo(() => getEventDates(visibleGlobalEvents.filter(e => e.status === 'approved' || (e.status as string) === 'partial')), [getEventDates, visibleGlobalEvents]);
+  const myEventDates = React.useMemo(() => getEventDates(myEvents.filter(e => e.status === 'approved' || (e.status as string) === 'partial')), [getEventDates, myEvents]);
 
-  // Show approved campus bookings plus this club's own bookings, including closed-club events for booking awareness.
-  const calendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(visibleGlobalEvents, venues)), [toCalendarEvents, visibleGlobalEvents, venues]);
-  const myCalendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(myEvents, venues)), [toCalendarEvents, myEvents, venues]);
+  // Show approved campus bookings plus this club's own approved/partial bookings in the calendar views.
+  const calendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(visibleGlobalEvents.filter(e => e.status === 'approved' || (e.status as string) === 'partial'), venues)), [toCalendarEvents, visibleGlobalEvents, venues]);
+  const myCalendarEventsWithVenue = React.useMemo(() => toCalendarEvents(groupBookings(myEvents.filter(e => e.status === 'approved' || (e.status as string) === 'partial'), venues)), [toCalendarEvents, myEvents, venues]);
   const activeCalendar = React.useMemo(() => {
     if (calendarView === 'club') {
       return {
         title: 'My Club Calendar',
-        sourceEvents: myEvents,
+        sourceEvents: myEvents.filter(e => e.status === 'approved' || (e.status as string) === 'partial'),
         calendarEvents: myCalendarEventsWithVenue,
         eventDates: myEventDates,
         emptyMessage: 'No club events scheduled for this day.',
@@ -330,7 +339,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
 
     return {
       title: 'Global Event Schedule',
-      sourceEvents: visibleGlobalEvents,
+      sourceEvents: visibleGlobalEvents.filter(e => e.status === 'approved' || (e.status as string) === 'partial'),
       calendarEvents: calendarEventsWithVenue,
       eventDates,
       emptyMessage: 'No events scheduled for this day.',
@@ -412,14 +421,14 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div className="flex items-center gap-4 min-w-0">
-          <Avatar className={cn("h-16 w-16 border-2 border-brand/20 ring-4 ring-brand/5 shrink-0 rounded-2xl bg-white", getLogoBgClass(user.name))}>
-            <AvatarImage src={clubDetails?.logo_url || getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
+          <Avatar className={cn("h-16 w-16 border-2 border-brand/20 ring-4 ring-brand/5 shrink-0 rounded-2xl bg-white")}>
+            <AvatarImage src={clubDetails?.logo_url || ''} alt={user.name} className="object-contain p-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.12)]" />
             <AvatarFallback className="bg-brand text-white font-bold text-xl rounded-2xl flex items-center justify-center">
               {user.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight truncate">Welcome, {user.name}</h2>
+            <h2 className="text-xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight leading-tight">Welcome, {user.name}</h2>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base font-medium">Manage your events and venue bookings efficiently.</p>
           </div>
         </div>
@@ -493,7 +502,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/40 overflow-y-auto max-h-[300px]">
-                {groupBookings(myEvents, venues).map((event, index) => (
+                {groupBookings(myEvents, venues).slice(0, 5).map((event, index) => (
                   <motion.div
                     key={event.batchId || event.ids?.[0] || index}
                     initial={{ opacity: 0, x: 20 }}
@@ -557,7 +566,7 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/40 overflow-y-auto max-h-[300px]">
-                {registeredEvents.map((event, index) => (
+                {registeredEvents.slice(0, 5).map((event, index) => (
                   <motion.div
                     key={event.id}
                     initial={{ opacity: 0, x: 20 }}
@@ -683,24 +692,6 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
         </Card>
       </motion.div>
 
-      {/* Quick Policy Reminder */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-      >
-        <Alert variant="info" className="border-brand/30 bg-primary/5 rounded-2xl">
-          <Info className="h-4 w-4 shrink-0" />
-          <AlertTitle>Booking Policy Reminder</AlertTitle>
-          <AlertDescription className="mt-1">
-            Category A venues are auto-approved for Group A clubs if no conflict exists.
-            Category B venues (Lecture Theatres) always require Admin approval.
-          </AlertDescription>
-        </Alert>
-      </motion.div>
-
-
-
       {/* Dialog for Edit About & Socials */}
       <Dialog open={isEditAboutOpen} onOpenChange={setIsEditAboutOpen}>
         <DialogContent className="sm:max-w-lg rounded-2xl bg-card border border-borderSoft text-textPrimary max-h-[90vh] overflow-y-auto">
@@ -714,8 +705,8 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
             <div className="grid gap-2">
               <Label className="text-textSecondary font-semibold">Club/Committee Logo</Label>
               <div className="flex items-center gap-4 p-3 rounded-xl bg-bgMain border border-borderSoft">
-                <Avatar className={cn("h-14 w-14 border border-borderSoft rounded-xl shrink-0 bg-white", getLogoBgClass(user.name))}>
-                  <AvatarImage src={editForm.logo_url || getClubLogoUrl(user.name) || ''} alt={user.name} className="object-contain p-1" />
+                <Avatar className={cn("h-14 w-14 border border-borderSoft rounded-xl shrink-0 bg-white")}>
+                  <AvatarImage src={editForm.logo_url || ''} alt={user.name} className="object-contain p-1" />
                   <AvatarFallback className="bg-brand text-white font-semibold text-lg flex items-center justify-center">
                     {user.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -797,6 +788,20 @@ const ClubDashboard: React.FC<ClubDashboardProps> = ({ user }) => {
                   <span className="text-[10px] text-textMuted">PNG, JPG (Max 2MB)</span>
                 </div>
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-member-tag" className="text-textSecondary font-semibold">
+                Member Tag <span className="text-[10px] text-textMuted ml-1">(Max 30 chars)</span>
+              </Label>
+              <Input
+                id="edit-member-tag"
+                value={editForm.member_tag}
+                maxLength={30}
+                onChange={e => setEditForm({ ...editForm, member_tag: e.target.value })}
+                placeholder="e.g. Official Campus Committee"
+                className="rounded-xl bg-bgMain border-borderSoft text-textPrimary h-10"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-description" className="text-textSecondary font-semibold">Description</Label>

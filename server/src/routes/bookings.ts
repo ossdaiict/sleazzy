@@ -25,6 +25,49 @@ router.get('/clubs', async (_req, res) => {
   }
 });
 
+router.get('/clubs/stats', async (_req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT organization_type, COUNT(*)::int as count
+      FROM clubs
+      WHERE organization_type != 'other'
+      GROUP BY organization_type
+    `);
+    const stats: Record<string, number> = { 
+      club: 0, committee: 0, organisation: 0, 
+      total_activities: 0,
+      members_club: 0, members_committee: 0, members_organisation: 0
+    };
+    for (const row of rows) {
+      stats[row.organization_type] = row.count;
+    }
+
+    const { rows: memberRows } = await db.query(`
+      SELECT c.organization_type, COUNT(cm.id)::int as member_count
+      FROM club_members cm
+      JOIN clubs c ON cm.club_id = c.id
+      WHERE c.organization_type != 'other'
+      GROUP BY c.organization_type
+    `);
+    for (const row of memberRows) {
+      stats[`members_${row.organization_type}`] = row.member_count;
+    }
+
+    const { rows: activityRows } = await db.query(`
+      SELECT COUNT(*)::int as count 
+      FROM events
+      WHERE event_type = 'co_curricular' OR event_type = 'open_all'
+    `);
+    if (activityRows.length > 0) {
+      stats.total_activities = activityRows[0].count;
+    }
+
+    return res.json(stats);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/clubs/my-club', authMiddleware, async (req, res) => {
   if (req.user?.role !== 'club') {
     return res.status(403).json({ error: 'Only club accounts can fetch their details' });
@@ -51,7 +94,7 @@ router.patch('/clubs/my-club', authMiddleware, async (req, res) => {
     return res.status(403).json({ error: 'Only club accounts can edit their about section' });
   }
 
-  const { description, key_activities, linkedin_url, instagram_url, youtube_url, website_url, logo_url } = req.body;
+  const { description, key_activities, linkedin_url, instagram_url, youtube_url, website_url, logo_url, member_tag } = req.body;
 
   try {
     const clubResult = await db.query(
@@ -76,7 +119,8 @@ router.patch('/clubs/my-club', authMiddleware, async (req, res) => {
       instagram_url,
       youtube_url,
       website_url,
-      logo_url
+      logo_url,
+      member_tag
     };
 
     for (const [key, value] of Object.entries(fieldsToUpdate)) {
@@ -170,6 +214,11 @@ router.delete('/my-bookings/:id', authMiddleware, async (req, res) => {
     const checkRes = await db.query('SELECT * FROM bookings WHERE id = $1 AND club_id = $2', [id, clubId]);
     if (checkRes.rows.length === 0) {
       return res.status(404).json({ error: 'Booking not found or not owned by you' });
+    }
+    
+    const booking = checkRes.rows[0];
+    if (new Date(booking.start_time) <= new Date()) {
+      return res.status(400).json({ error: 'Cannot cancel a booking after its start time has passed.' });
     }
     
     // Optionally: only allow deleting if it's pending, or let them cancel approved ones too.

@@ -8,12 +8,13 @@ import AdminVenues from './pages/AdminVenues';
 import BookSlot from './pages/BookSlot';
 import AdminClubs from './pages/AdminClubs';
 import AdminRequests from './pages/AdminRequests';
-import MasterSchedule from './pages/MasterSchedule';
+
 import PolicyPage from './pages/PolicyPage';
 import MyBookings from './pages/MyBookings';
 import ClubMembers from './pages/ClubMembers';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
+import AboutSBG from './pages/AboutSBG';
 import ClubsCommitteesPage from './pages/ClubsCommitteesPage';
 import ClubCommittee from './pages/ClubCommittee';
 import ManageEvents from './pages/ManageEvents';
@@ -22,11 +23,10 @@ import AdminEventReports from './pages/AdminEventReports';
 import Archives from './pages/Archives';
 import { User } from './types';
 import { apiRequest } from './lib/api';
-import { toastError } from './lib/toast';
 import { getSocket, SOCKET_EVENTS } from './lib/socket';
 
-const USER_STORAGE_KEY = 'sleazzy_user_profile';
-const TOKEN_KEY = 'jwt_token'; // New key for standard JWT storage
+const USER_STORAGE_KEY = 'sbg_user_profile';
+const TOKEN_KEY = 'jwt_token'; 
 
 const getCachedUser = (): User | null => {
   if (typeof window === 'undefined') return null;
@@ -174,6 +174,7 @@ const App: React.FC = () => {
             {/* Note: Ensure your Login component passes both the User object AND the JWT token to onLogin */}
             <Route path="/login" element={<Login onLogin={handleLogin} />} />
             <Route path="/clubs-committees" element={<ClubsCommitteesPage onGoToLogin={() => { window.location.href = '/login'; }} />} />
+            <Route path="/about-sbg" element={<AboutSBG onGoToLogin={() => { window.location.href = '/login'; }} />} />
             <Route path="*" element={<LandingPage onGoToLogin={() => { window.location.href = '/login'; }} />} />
           </Routes>
         </BrowserRouter>
@@ -197,7 +198,7 @@ const App: React.FC = () => {
             <Route path="/policy" element={<PolicyPage />} />
 
             <Route path="/admin/requests" element={<AdminRequests />} />
-            <Route path="/admin/schedule" element={<MasterSchedule />} />
+
             <Route path="/admin/clubs" element={user.role === 'admin' ? <AdminClubs /> : <Navigate to="/" replace />} />
             <Route path="/admin/venues" element={user.role === 'admin' ? <AdminVenues /> : <Navigate to="/" replace />} />
             <Route path="/admin/event-reports" element={user.role === 'admin' ? <AdminEventReports /> : <Navigate to="/" replace />} />

@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 // Swap Supabase for your database pool
 import { db } from '../db';
-import { sendApprovalNotification } from '../services/email';
+
 import { createBookingPendingNotifications } from '../services/notification';
 import { getSemesterRange, countCoCurricularBookings, CO_CURRICULAR_LIMIT } from '../services/semesterUtils';
 import { randomUUID } from 'crypto';
@@ -295,17 +295,7 @@ export const createBooking = async (req: Request, res: Response) => {
     const pendingForEmail = createdBookings.filter((b) => b.status === 'pending');
     if (pendingForEmail.length > 0) {
       const formatTime = (iso: string) => new Date(iso).toLocaleString();
-      const itemsForEmail = pendingForEmail.map((b) => {
-        const venue = venues.find((v) => v.id === b.venue_id);
-        return {
-          venueName: venue?.name ?? b.venue_id,
-          eventName: b.event_name,
-          startTime: b.start_time,
-          endTime: b.end_time,
-          clubName: club?.name,
-          eventType: b.event_type,
-        };
-      });
+
 
       const itemsForNotification = pendingForEmail.map((b) => {
         const venue = venues.find((v) => v.id === b.venue_id);
@@ -318,10 +308,7 @@ export const createBooking = async (req: Request, res: Response) => {
         };
       });
 
-      const { sent, error } = await sendApprovalNotification(itemsForEmail);
-      if (!sent && error) {
-        console.error('Approval email failed (bookings still created):', error);
-      }
+
 
       // Also persist as in-app notifications
       await createBookingPendingNotifications(itemsForNotification);
@@ -349,6 +336,31 @@ export const createBooking = async (req: Request, res: Response) => {
         clubId,
       });
       io.emit('events:updated');
+
+      const { sendBulkBookingProcessedEmail } = await import('../services/email');
+      const clubEmailRows = await db.query('SELECT email FROM clubs WHERE id = $1', [clubId]);
+      const clubEmail = clubEmailRows.rows[0]?.email;
+      
+      if (clubEmail) {
+        const approvedVenues = approvedBookings.map((b) => {
+          const venue = venues.find((v) => v.id === b.venue_id);
+          return venue?.name || 'Venue';
+        });
+        
+        const date = new Date(approvedBookings[0].start_time).toLocaleDateString('en-IN');
+        const startStr = new Date(approvedBookings[0].start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const endStr = new Date(approvedBookings[0].end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        
+        await sendBulkBookingProcessedEmail(
+          clubEmail,
+          eventName,
+          date,
+          startStr,
+          endStr,
+          approvedVenues,
+          []
+        );
+      }
     }
 
     return res.status(201).json(createdBookings);

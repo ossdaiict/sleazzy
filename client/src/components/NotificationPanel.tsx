@@ -143,7 +143,7 @@ const NotificationPanel: React.FC = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.96 }}
                         transition={{ duration: 0.2, ease: 'easeOut' }}
-                        className="absolute right-0 top-full mt-2 w-[360px] sm:w-[400px] max-h-[480px] rounded-2xl border border-borderSoft bg-popover shadow-[0_16px_64px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_64px_rgba(0,0,0,0.5)] z-50 flex flex-col overflow-hidden"
+                        className="fixed inset-x-4 top-[72px] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[400px] max-h-[80vh] sm:max-h-[480px] rounded-2xl border border-borderSoft bg-popover shadow-[0_16px_64px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_64px_rgba(0,0,0,0.5)] z-50 flex flex-col overflow-hidden"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b border-borderSoft">

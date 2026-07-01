@@ -55,6 +55,141 @@ router.get('/bookings', async (_req, res) => {
   }
 });
 
+router.patch('/bookings/bulk-status', async (req, res) => {
+  const { ids, status } = req.body as {
+    ids: string[];
+    status: 'approved' | 'rejected';
+  };
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'No booking IDs provided' });
+  }
+
+  if (status !== 'approved' && status !== 'rejected') {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Fetch the bookings to ensure they exist and to get metadata
+    const { rows: bookings } = await client.query(
+      `SELECT b.*, v.name as venue_name, e.name as event_name, c.email as club_email 
+       FROM bookings b
+       LEFT JOIN venues v ON b.venue_id = v.id
+       LEFT JOIN events e ON b.event_id = e.id
+       LEFT JOIN clubs c ON b.club_id = c.id
+       WHERE b.id = ANY($1)`,
+      [ids]
+    );
+
+    if (bookings.length === 0) {
+      throw new Error('No valid bookings found');
+    }
+
+    // Update statuses
+    await client.query(
+      `UPDATE bookings SET status = $1 WHERE id = ANY($2)`,
+      [status, ids]
+    );
+
+    await client.query('COMMIT');
+
+    // Create notifications and emit socket events
+    for (const data of bookings) {
+      await createNotification({
+        type: status === 'approved' ? 'booking_approved' : 'booking_rejected',
+        title: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        message: `"${data.event_name || 'Event'}" has been ${status}.`,
+        userId: data.user_id,
+        metadata: { bookingId: data.id, status },
+      });
+
+      io.to(`club:${data.club_id}`).emit('booking:status_changed', {
+        bookingId: data.id,
+        status,
+        eventName: data.event_name || 'Event',
+        clubId: data.club_id,
+      });
+    }
+
+    io.emit('events:updated');
+
+    return res.json({ success: true, count: bookings.length });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/bookings/send-email', async (req, res) => {
+  const { eventId, batchId } = req.body as {
+    eventId?: string;
+    batchId?: string;
+  };
+
+  if (!eventId && !batchId) {
+    return res.status(400).json({ error: 'Either eventId or batchId must be provided' });
+  }
+
+  try {
+    const { rows: allGroupBookings } = await db.query(
+      `SELECT b.*, v.name as venue_name, c.email as club_email, e.name as actual_event_name
+       FROM bookings b
+       LEFT JOIN venues v ON b.venue_id = v.id
+       LEFT JOIN clubs c ON b.club_id = c.id
+       LEFT JOIN events e ON b.event_id = e.id
+       WHERE ${eventId ? 'b.event_id = $1' : 'b.batch_id = $1'}`,
+      [eventId || batchId]
+    );
+
+    if (allGroupBookings.length === 0) {
+      return res.status(404).json({ error: 'No bookings found' });
+    }
+
+    const clubEmail = allGroupBookings[0].club_email;
+    const eventName = allGroupBookings[0].actual_event_name || allGroupBookings[0].event_name || 'Event';
+    const date = new Date(allGroupBookings[0].start_time).toLocaleDateString('en-IN');
+    const startTimeStr = new Date(allGroupBookings[0].start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const endTimeStr = new Date(allGroupBookings[0].end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+    const approvedVenues: string[] = [];
+    const rejectedVenues: string[] = [];
+
+    allGroupBookings.forEach((b: any) => {
+      const vName = b.venue_name || 'Venue';
+      if (b.status === 'approved') approvedVenues.push(vName);
+      else if (b.status === 'rejected') rejectedVenues.push(vName);
+    });
+
+    if (clubEmail) {
+      const { sendBulkBookingProcessedEmail } = await import('../services/email');
+      const emailResult = await sendBulkBookingProcessedEmail(
+        clubEmail,
+        eventName,
+        date,
+        startTimeStr,
+        endTimeStr,
+        approvedVenues,
+        rejectedVenues
+      );
+
+      if (emailResult.sent) {
+        return res.json({ success: true });
+      } else {
+        return res.status(500).json({ error: emailResult.error || 'Failed to send email' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Club email not found' });
+    }
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.patch('/bookings/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status, adminNote } = req.body as {
@@ -67,6 +202,10 @@ router.patch('/bookings/:id/status', async (req, res) => {
   }
 
   try {
+    const fetchRes = await db.query('SELECT status FROM bookings WHERE id = $1', [id]);
+    if (fetchRes.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
+    const oldStatus = fetchRes.rows[0].status;
+
     const { rows } = await db.query(`
       UPDATE bookings SET status = $1 
       WHERE id = $2 
@@ -100,8 +239,40 @@ router.patch('/bookings/:id/status', async (req, res) => {
       clubId: data.club_id,
     });
 
-    if (status === 'approved') {
-      io.emit('events:updated');
+    io.emit('events:updated');
+
+    if (status === 'approved' || (status === 'rejected' && oldStatus === 'approved')) {
+      const { sendBookingApprovedEmailToClub, sendBookingCancelledEmailToClub } = await import('../services/email');
+      const venueRes = await db.query('SELECT name FROM venues WHERE id = $1', [data.venue_id]);
+      const clubRes = await db.query('SELECT email FROM clubs WHERE id = $1', [data.club_id]);
+      const venueName = venueRes.rows[0]?.name || 'Venue';
+      const clubEmail = clubRes.rows[0]?.email;
+      
+      if (clubEmail) {
+        const date = new Date(data.start_time).toLocaleDateString('en-IN');
+        const startTimeStr = new Date(data.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const endTimeStr = new Date(data.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        
+        if (status === 'approved') {
+          await sendBookingApprovedEmailToClub(
+            clubEmail,
+            venueName,
+            eventName,
+            date,
+            startTimeStr,
+            endTimeStr
+          );
+        } else if (status === 'rejected') {
+          await sendBookingCancelledEmailToClub(
+            clubEmail,
+            venueName,
+            eventName,
+            date,
+            startTimeStr,
+            endTimeStr
+          );
+        }
+      }
     }
 
     return res.json(data);
@@ -161,7 +332,7 @@ router.put('/bookings/:id', async (req, res) => {
         UPDATE bookings SET ${setString} WHERE id = $${values.length} RETURNING *
       )
       SELECT u.*, 
-             json_build_object('name', c.name) AS clubs,
+             json_build_object('name', c.name, 'email', c.email) AS clubs,
              json_build_object('name', v.name) AS venues
       FROM updated u
       LEFT JOIN clubs c ON u.club_id = c.id
@@ -179,6 +350,21 @@ router.put('/bookings/:id', async (req, res) => {
       clubId: data.club_id,
     });
 
+    if (updateFields.status === 'approved' && data.clubs?.email) {
+      const { sendBookingApprovedEmailToClub } = await import('../services/email');
+      const date = new Date(data.start_time).toLocaleDateString('en-IN');
+      const startTimeStr = new Date(data.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      const endTimeStr = new Date(data.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      await sendBookingApprovedEmailToClub(
+        data.clubs.email,
+        data.venues?.name || 'Venue',
+        data.event_name,
+        date,
+        startTimeStr,
+        endTimeStr
+      );
+    }
+
     return res.json(data);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -190,10 +376,21 @@ router.delete('/bookings/:id', async (req, res) => {
 
   try {
     const fetchRes = await db.query(
-      `SELECT b.club_id, e.name AS event_name
-       FROM bookings b LEFT JOIN events e ON b.event_id = e.id
+      `SELECT b.club_id, b.status, b.start_time, b.end_time, e.name AS event_name, v.name AS venue_name, c.email AS club_email
+       FROM bookings b 
+       LEFT JOIN events e ON b.event_id = e.id
+       LEFT JOIN venues v ON b.venue_id = v.id
+       LEFT JOIN clubs c ON b.club_id = c.id
        WHERE b.id = $1`, [id]);
     const booking = fetchRes.rows[0];
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (new Date(booking.start_time) <= new Date()) {
+      return res.status(400).json({ error: 'Cannot cancel a booking after its start time has passed.' });
+    }
 
     await db.query('DELETE FROM bookings WHERE id = $1', [id]);
 
@@ -205,6 +402,22 @@ router.delete('/bookings/:id', async (req, res) => {
         eventName: booking.event_name,
         clubId: booking.club_id,
       });
+
+      if (booking.status === 'approved' && booking.club_email) {
+        const { sendBookingCancelledEmailToClub } = await import('../services/email');
+        const date = new Date(booking.start_time).toLocaleDateString('en-IN');
+        const startTimeStr = new Date(booking.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const endTimeStr = new Date(booking.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+        await sendBookingCancelledEmailToClub(
+          booking.club_email,
+          booking.venue_name || 'Venue',
+          booking.event_name,
+          date,
+          startTimeStr,
+          endTimeStr
+        );
+      }
     }
 
     return res.json({ success: true });
@@ -268,6 +481,26 @@ router.post('/bookings', async (req, res) => {
       metadata: { batchId, venues: venue_ids },
     });
 
+    const { sendBookingApprovedEmailToClub } = await import('../services/email');
+    const clubEmailRes = await db.query('SELECT email FROM clubs WHERE id = $1', [club_id]);
+    const clubEmail = clubEmailRes.rows[0]?.email;
+    
+    if (clubEmail) {
+      for (const b of createdBookings) {
+        const date = new Date(b.start_time).toLocaleDateString('en-IN');
+        const startTimeStr = new Date(b.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const endTimeStr = new Date(b.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        await sendBookingApprovedEmailToClub(
+          clubEmail,
+          b.venues?.name || 'Venue',
+          b.event_name,
+          date,
+          startTimeStr,
+          endTimeStr
+        );
+      }
+    }
+
     io.emit('events:updated');
     io.to(`club:${club_id}`).emit('booking:status_changed', {
       bookingId: createdBookings[0].id,
@@ -313,11 +546,13 @@ router.get('/clubs', async (_req, res) => {
 
 router.patch('/clubs/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, group_category } = req.body;
+  const { name, group_category, organization_type, member_tag } = req.body;
 
   const updateFields: Record<string, any> = {};
   if (name !== undefined) updateFields.name = name;
   if (group_category !== undefined) updateFields.group_category = group_category;
+  if (organization_type !== undefined) updateFields.organization_type = organization_type;
+  if (member_tag !== undefined) updateFields.member_tag = member_tag;
 
   if (Object.keys(updateFields).length === 0) return res.status(400).json({ error: 'No fields to update' });
 
@@ -370,6 +605,26 @@ router.get('/clubs/:id/bookings', async (req, res) => {
       ${baseBookingQuery}
       WHERE b.club_id = $1
       ORDER BY b.start_time DESC
+    `, [id]);
+    
+    return res.json(rows);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/clubs/:id/events', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await db.query(`
+      SELECT 
+        e.*,
+        c.name as club_name,
+        c.email as club_email
+      FROM events e
+      LEFT JOIN clubs c ON e.club_id = c.id
+      WHERE e.club_id = $1
+      ORDER BY e.date DESC
     `, [id]);
     
     return res.json(rows);

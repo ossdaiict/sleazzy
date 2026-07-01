@@ -24,6 +24,7 @@ const AdminRequests: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   const fetchRequests = React.useCallback(async () => {
     setIsLoading(true);
@@ -77,18 +78,36 @@ const AdminRequests: React.FC = () => {
   }, [fetchRequests]);
 
   const handleAction = async (ids: string[], action: 'approved' | 'rejected') => {
+    if (isProcessingAction) return;
+    setIsProcessingAction(true);
     try {
-      await Promise.all(ids.map(id => apiRequest(`/api/admin/bookings/${id}/status`, {
+      await apiRequest('/api/admin/bookings/bulk-status', {
         method: 'PATCH',
         auth: true,
-        body: { status: action, adminNote: '' },
-      })));
+        body: { ids, status: action },
+      });
       toastSuccess(`Request(s) ${action === 'approved' ? 'approved' : 'rejected'} successfully`);
       const bookingsData = await apiRequest<ApiBooking[]>('/api/admin/bookings', { auth: true });
       setRequests(groupBookings(bookingsData.map(mapBooking)));
     } catch (err) {
       console.error('Failed to update request(s):', err);
       toastError(err, `Failed to ${action} request(s). Please try again.`);
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleSendEmail = async (batchId: string | undefined, eventId: string | undefined) => {
+    try {
+      await apiRequest('/api/admin/bookings/send-email', {
+        method: 'POST',
+        auth: true,
+        body: { batchId, eventId },
+      });
+      toastSuccess('Status email sent to the club successfully!');
+    } catch (err) {
+      console.error('Failed to send email:', err);
+      toastError(err, 'Failed to send email. Please try again.');
     }
   };
 
@@ -115,7 +134,7 @@ const AdminRequests: React.FC = () => {
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-textPrimary tracking-tight">Request Management</h2>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-textPrimary tracking-tight leading-tight">Request Management</h2>
           <p className="text-textMuted mt-2 text-sm sm:text-base font-medium">Review and take action on venue booking requests.</p>
         </div>
 
@@ -182,7 +201,10 @@ const AdminRequests: React.FC = () => {
                         index={index}
                         venues={venues}
                         handleAction={handleAction}
+                        handleSendEmail={handleSendEmail}
                         getVenueName={getVenueName}
+                        isHistoryTab={activeTab === 'history'}
+                        isProcessingAction={isProcessingAction}
                       />
                     ))}
                   </tbody>
@@ -209,10 +231,13 @@ interface AdminRequestRowProps {
   index: number;
   venues: ApiVenue[];
   handleAction: (ids: string[], action: 'approved' | 'rejected') => Promise<void>;
+  handleSendEmail: (batchId: string | undefined, eventId: string | undefined) => Promise<void>;
   getVenueName: (id: string) => string;
+  isHistoryTab: boolean;
+  isProcessingAction: boolean;
 }
 
-const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, handleAction, getVenueName }) => {
+const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, handleAction, handleSendEmail, getVenueName, isHistoryTab, isProcessingAction }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isMultiVenue = req.bookings.length > 1;
 
@@ -224,6 +249,8 @@ const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, h
       default: return 'pending';
     }
   };
+
+  const isStarted = new Date(req.bookings[0].startTimeISO!) <= new Date();
 
   return (
     <>
@@ -298,37 +325,75 @@ const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, h
           </Badge>
         </td>
         <td className="px-4 sm:px-6 py-4 text-right">
-          {req.bookings.every(b => b.status === "pending") ? (
-            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => { e.stopPropagation(); handleAction(req.ids, 'rejected'); }}
-                className="text-textMuted hover:text-error"
-                title="Reject All"
-              >
-                <XCircle size={18} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => { e.stopPropagation(); handleAction(req.ids, 'approved'); }}
-                className="text-primary hover:text-primary/80"
-                title="Approve All"
-              >
-                <CheckCircle size={18} />
-              </Button>
-            </div>
-          ) : req.bookings.some(b => b.status === "pending") ? (
-            <div className="text-xs font-semibold text-warning flex items-center justify-end gap-1">
-              Mixed Status
-              <ChevronDown size={14} className={cn("transition-transform", isExpanded && "rotate-180")} />
-            </div>
-          ) : (
-            <div className="text-xs text-textMuted italic flex justify-end">
-              Processed
-            </div>
-          )}
+          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); handleSendEmail(req.batchId, req.bookings[0]?.event_id); }}
+              className="text-xs"
+              title="Send an email to the club with the current status of all venues in this booking"
+              disabled={isProcessingAction}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              Send Mail
+            </Button>
+            {!isHistoryTab && !isStarted && (
+              <>
+                {/* Single-venue: show individual approve/reject directly on the row */}
+                {!isMultiVenue && req.bookings[0]?.status !== 'rejected' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => { e.stopPropagation(); handleAction([req.bookings[0].id], 'rejected'); }}
+                    className="text-textMuted hover:text-error"
+                    title="Reject this venue"
+                    disabled={isProcessingAction}
+                  >
+                    <XCircle size={18} />
+                  </Button>
+                )}
+                {!isMultiVenue && req.bookings[0]?.status !== 'approved' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => { e.stopPropagation(); handleAction([req.bookings[0].id], 'approved'); }}
+                    className="text-primary hover:text-primary/80"
+                    title="Approve this venue"
+                    disabled={isProcessingAction}
+                  >
+                    <CheckCircle size={18} />
+                  </Button>
+                )}
+                {/* Multi-venue: show bulk Reject All / Approve All; individual controls are in the expanded panel */}
+                {isMultiVenue && req.status !== 'rejected' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleAction(req.ids, 'rejected'); }}
+                    className="text-textMuted hover:text-error text-xs"
+                    title="Reject all venues"
+                    disabled={isProcessingAction}
+                  >
+                    <XCircle size={15} className="mr-1" />
+                    <span className="hidden sm:inline">Reject All</span>
+                  </Button>
+                )}
+                {isMultiVenue && req.status !== 'approved' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleAction(req.ids, 'approved'); }}
+                    className="text-primary hover:text-primary/80 text-xs"
+                    title="Approve all venues"
+                    disabled={isProcessingAction}
+                  >
+                    <CheckCircle size={15} className="mr-1" />
+                    <span className="hidden sm:inline">Approve All</span>
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </td>
       </motion.tr>
 
@@ -360,28 +425,32 @@ const AdminRequestRow: React.FC<AdminRequestRowProps> = ({ req, index, venues, h
                         {booking.status.toUpperCase()}
                       </Badge>
                     </div>
-                    {booking.status === 'pending' && (
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAction([booking.id], 'rejected')}
-                          className="h-8 w-8 p-0 text-textMuted hover:text-error"
-                          title="Reject this venue"
-                        >
-                          <X size={16} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAction([booking.id], 'approved')}
-                          className="h-8 w-8 p-0 text-primary hover:text-primary/80"
-                          title="Approve this venue"
-                        >
-                          <Check size={16} />
-                        </Button>
+                        {!isStarted && booking.status !== 'rejected' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAction([booking.id], 'rejected')}
+                            className="h-8 w-8 p-0 text-textMuted hover:text-error"
+                            title="Reject this venue"
+                            disabled={isProcessingAction}
+                          >
+                            <X size={16} />
+                          </Button>
+                        )}
+                        {!isStarted && booking.status !== 'approved' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAction([booking.id], 'approved')}
+                            className="h-8 w-8 p-0 text-primary hover:text-primary/80"
+                            title="Approve this venue"
+                            disabled={isProcessingAction}
+                          >
+                            <Check size={16} />
+                          </Button>
+                        )}
                       </div>
-                    )}
                   </div>
                 ))}
               </div>

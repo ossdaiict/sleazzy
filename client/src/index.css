@@ -7,13 +7,13 @@
    Premium "Aurora" Theme — SBG
    ================================================================ */
 :root {
-  --bgMain: #f8fafc;
-  --card: #ffffff;
-  --borderSoft: rgba(203, 213, 225, 0.4);
-  --hoverSoft: rgba(241, 245, 249, 0.9);
-  --textPrimary: #0f172a;
-  --textSecondary: #334155;
-  --textMuted: #64748b;
+  --bgMain: #F1F5F9;
+  --card: #FFFFFF;
+  --borderSoft: rgba(15, 23, 42, 0.22);
+  --hoverSoft: rgba(15, 23, 42, 0.04);
+  --textPrimary: #0F172A;
+  --textSecondary: #475569;
+  --textMuted: #64748B;
 
   --brand: #2C3E8A;
   --brand-glow: rgba(44, 62, 138, 0.15);
@@ -137,6 +137,7 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scrollbar-gutter: stable;
   }
 
   body {

@@ -11,7 +11,7 @@ const router = express.Router();
 
 // Public Routes
 router.post('/register', async (req, res) => {
-    const { email, password, clubName, groupCategory, userId: providedUserId } = req.body;
+    const { email, password, clubName, groupCategory, organizationType, userId: providedUserId } = req.body;
 
     if (!email || !clubName || !groupCategory) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -56,9 +56,9 @@ router.post('/register', async (req, res) => {
         
         if (clubRes.rows.length === 0) {
             await db.query(`
-                INSERT INTO clubs (name, email, group_category)
-                VALUES ($1, $2, $3)
-            `, [clubName, email, groupCategory]);
+                INSERT INTO clubs (name, email, group_category, organization_type)
+                VALUES ($1, $2, $3, $4)
+            `, [clubName, email, groupCategory, organizationType || 'club']);
         }
 
         return res.status(201).json({ message: 'Registration successful', userId });
@@ -96,13 +96,8 @@ router.post('/login', async (req, res) => {
     }
 });
 
-function generateTempPassword(): string {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let temp = '';
-    for (let i = 0; i < 8; i++) {
-        temp += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return temp;
+function generateOTP(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 router.post('/forgot-password', async (req, res) => {
@@ -118,28 +113,105 @@ router.post('/forgot-password', async (req, res) => {
             return res.status(404).json({ error: 'No account found with this email' });
         }
 
-        const tempPassword = generateTempPassword();
-        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        const otp = generateOTP();
+        const hashedOtp = await bcrypt.hash(otp, 10);
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
-        await db.query('UPDATE auth.users SET encrypted_password = $1 WHERE email = $2', [hashedPassword, email]);
+        await db.query(
+            'UPDATE auth.users SET reset_otp = $1, reset_otp_expires_at = $2 WHERE email = $3', 
+            [hashedOtp, expiresAt, email]
+        );
 
-        const emailResult = await sendPasswordResetEmail(email, tempPassword);
+        const emailResult = await sendPasswordResetEmail(email, otp);
 
         if (!emailResult.sent) {
             console.log(`\n======================================================`);
             console.log(`[DEV ONLY] Password Reset Requested`);
             console.log(`Email: ${email}`);
-            console.log(`Temporary Password: ${tempPassword}`);
+            console.log(`OTP: ${otp}`);
             console.log(`Reason: EmailJS is not configured or failed to send (${emailResult.error || 'not configured'}).`);
             console.log(`======================================================\n`);
         }
 
         return res.json({ 
-            message: 'A temporary password has been sent to your email address.' 
+            message: 'A 6-digit OTP has been sent to your email address.' 
         });
 
     } catch (err: any) {
         console.error('Forgot password error:', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+router.post('/verify-otp', async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        return res.status(400).json({ error: 'Email and OTP are required' });
+    }
+
+    try {
+        const { rows } = await db.query('SELECT reset_otp, reset_otp_expires_at FROM auth.users WHERE email = $1', [email]);
+        const user = rows[0];
+
+        if (!user || !user.reset_otp || !user.reset_otp_expires_at) {
+            return res.status(400).json({ error: 'No active password reset request found' });
+        }
+
+        if (new Date() > new Date(user.reset_otp_expires_at)) {
+            return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+        }
+
+        const isMatch = await bcrypt.compare(otp, user.reset_otp);
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Invalid OTP' });
+        }
+
+        return res.json({ message: 'OTP verified successfully' });
+    } catch (err: any) {
+        console.error('Verify OTP error:', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+router.post('/reset-password', async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+        return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    try {
+        const { rows } = await db.query('SELECT reset_otp, reset_otp_expires_at FROM auth.users WHERE email = $1', [email]);
+        const user = rows[0];
+
+        if (!user || !user.reset_otp || !user.reset_otp_expires_at) {
+            return res.status(400).json({ error: 'No active password reset request found' });
+        }
+
+        if (new Date() > new Date(user.reset_otp_expires_at)) {
+            return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+        }
+
+        const isMatch = await bcrypt.compare(otp, user.reset_otp);
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Invalid OTP' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        await db.query(
+            'UPDATE auth.users SET encrypted_password = $1, reset_otp = NULL, reset_otp_expires_at = NULL WHERE email = $2', 
+            [hashedPassword, email]
+        );
+
+        return res.json({ message: 'Password reset successfully. You can now log in.' });
+    } catch (err: any) {
+        console.error('Reset password error:', err);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -222,6 +294,45 @@ router.get('/profile', async (req, res) => {
 
     } catch (err) {
         console.error('Profile endpoint error:', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+router.post('/change-password', async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Missing current or new password' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    try {
+        const { rows } = await db.query('SELECT encrypted_password FROM auth.users WHERE id = $1', [userId]);
+        const user = rows[0];
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.encrypted_password);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Incorrect current password' });
+        }
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await db.query('UPDATE auth.users SET encrypted_password = $1 WHERE id = $2', [hashedNewPassword, userId]);
+
+        return res.json({ message: 'Password updated successfully' });
+    } catch (err: any) {
+        console.error('Change password error:', err);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 });

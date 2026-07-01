@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -87,6 +87,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
     const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
     const [selectedDayEvents, setSelectedDayEvents] = useState<PublicEvent[] | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const headerRef = useRef<HTMLElement>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isMobileMenuOpen && headerRef.current && !headerRef.current.contains(event.target as Node)) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMobileMenuOpen]);
 
     const fetchEvents = useCallback(async () => {
         try {
@@ -139,6 +154,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
             socket.off(SOCKET_EVENTS.BOOKING_NEW, handleRefresh);
         };
     }, [fetchEvents]);
+
+    // Close mobile menu on scroll
+    useEffect(() => {
+        const handleScroll = () => {
+            if (isMobileMenuOpen) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [isMobileMenuOpen]);
 
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear();
@@ -287,9 +314,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
     const getColor = (type?: string) => EVENT_TYPE_COLORS[type || ''] || DEFAULT_COLOR;
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-bgMain">
+        <div className="min-h-screen relative overflow-clip bg-bgMain">
             {/* ====== Header ====== */}
-            <header className="sticky top-0 z-30 bg-bgMain/80 backdrop-blur-xl border-b border-borderSoft/40">
+            <header ref={headerRef} className="sticky top-0 z-30 bg-bgMain/80 backdrop-blur-xl border-b border-borderSoft/40">
                 <div className="flex items-center justify-between px-3 sm:px-6 py-3 max-w-7xl mx-auto">
                     {/* Left: Logo & Nav Links */}
                     <div className="flex items-center gap-3 sm:gap-6 min-w-0">
@@ -305,6 +332,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                                 className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-xs sm:text-sm"
                             >
                                 Home
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => navigate('/about-sbg')}
+                                className="rounded-xl h-10 px-2.5 sm:px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-xs sm:text-sm"
+                            >
+                                About SBG
                             </Button>
                             <Button
                                 variant="ghost"
@@ -364,6 +398,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                                     className="justify-start rounded-xl h-11 px-4 font-semibold text-brand bg-brand/5 hover:bg-brand/10 transition-all text-sm w-full"
                                 >
                                     Home
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        navigate('/about-sbg');
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="justify-start rounded-xl h-11 px-4 font-semibold text-textSecondary hover:text-textPrimary hover:bg-hoverSoft transition-all text-sm w-full"
+                                >
+                                    About SBG
                                 </Button>
                                 <Button
                                     variant="ghost"
@@ -829,7 +873,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
             {/* ====== Footer ====== */}
             <footer className="relative z-10 px-4 py-10 text-center text-xs text-textMuted">
                 <p className="font-medium text-textSecondary">
-                    &copy; {new Date().getFullYear()} SBG &middot; Campus Venue Booking
+                    &copy; SBG {new Date().getFullYear()}
                 </p>
                 <div className="mt-4 flex justify-center">
                     <GdgFooterCredit />

@@ -39,7 +39,7 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                     type="button"
                     variant="outline"
                     className={cn(
-                        "h-10 w-full justify-start rounded-md border-borderSoft bg-card px-3 text-left font-semibold text-textPrimary shadow-sm hover:bg-hoverSoft/50",
+                        "h-10 w-full justify-start rounded-xl border-borderSoft bg-bgMain px-3 text-left font-normal text-textPrimary shadow-sm hover:bg-hoverSoft transition-all",
                         !value && "text-textMuted",
                         className
                     )}
@@ -48,7 +48,7 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                     <span>{formatDisplayTime(value)}</span>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 rounded-xl border-borderSoft p-3" align="start">
+            <PopoverContent className="w-72 rounded-xl border-borderSoft bg-popover p-3 shadow-lg z-[100]" align="start">
                 <div className="space-y-3">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">Select Time</p>
@@ -59,7 +59,7 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                         type="time"
                         value={value || ""}
                         onChange={(event) => onChange(event.target.value)}
-                        className="h-11 rounded-lg text-base font-semibold [color-scheme:light] dark:[color-scheme:dark]"
+                        className="h-11 rounded-lg bg-bgMain border border-borderSoft text-textPrimary text-base font-semibold px-3 [color-scheme:light] dark:[color-scheme:dark]"
                     />
 
                     <div className="grid grid-cols-4 gap-2">

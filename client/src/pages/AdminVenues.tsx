@@ -129,7 +129,7 @@ const AdminVenues: React.FC = () => {
     <div className="space-y-6 px-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tighter text-textPrimary">Manage Venues</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tighter text-textPrimary leading-tight">Manage Venues</h2>
           <p className="text-textSecondary mt-1 text-sm font-medium">Add, edit, or remove venues available for booking.</p>
         </div>
         <Button onClick={() => handleOpenModal()} className="gap-2">

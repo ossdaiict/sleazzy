@@ -1,0 +1,3 @@
+ALTER TABLE auth.users
+ADD COLUMN IF NOT EXISTS reset_otp VARCHAR(255),
+ADD COLUMN IF NOT EXISTS reset_otp_expires_at TIMESTAMPTZ;

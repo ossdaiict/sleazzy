@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -8,7 +8,7 @@ import { User, Role, ClubGroupType } from '../types';
 import { apiRequest } from '../lib/api';
 import { toastSuccess } from '../lib/toast';
 import { getErrorMessage } from '../lib/errors';
-import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { ThemeToggle } from '../components/theme-toggle';
 import { GradientBackground } from '../components/gradient-background';
@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 interface LoginProps {
   // Updated to accept the JWT token as a second argument
@@ -59,14 +60,54 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   // Forgot Password state
   const [forgotOpen, setForgotOpen] = useState(false);
-  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotTempPassword, setForgotTempPassword] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotError, setForgotError] = useState('');
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const handleRequestTempPassword = async (e: React.FormEvent) => {
+  const handleOtpChange = (index: number, value: string) => {
+    // Ensure only digits
+    if (!/^\d*$/.test(value)) return;
+
+    const newOtp = forgotOtp.split('');
+    newOtp[index] = value.slice(-1);
+    const combined = newOtp.join('');
+    setForgotOtp(combined);
+
+    // Auto-advance
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !forgotOtp[index] && index > 0) {
+      // Auto-retreat
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted) {
+      setForgotOtp(pasted);
+      if (pasted.length === 6) {
+        otpRefs.current[5]?.focus();
+      } else {
+        otpRefs.current[pasted.length]?.focus();
+      }
+    }
+  };
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
     setForgotSuccess('');
@@ -82,57 +123,78 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         method: 'POST',
         body: { email: forgotEmail },
       });
-      setForgotSuccess(response.message || 'A temporary password has been sent to your email.');
+      setForgotSuccess(response.message || 'A 6-digit OTP has been sent to your email.');
       setForgotStep(2);
     } catch (err) {
       console.error(err);
-      setForgotError(getErrorMessage(err, 'Failed to request temporary password.'));
+      setForgotError(getErrorMessage(err, 'Failed to request OTP.'));
     } finally {
       setForgotLoading(false);
     }
   };
 
-  const handleTempPasswordLogin = async (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
     setForgotSuccess('');
 
-    if (!forgotTempPassword) {
-      setForgotError('Please enter the temporary password.');
+    if (!forgotOtp) {
+      setForgotError('Please enter the OTP.');
       return;
     }
 
     setForgotLoading(true);
     try {
-      const loginResponse = await apiRequest<{ token: string }>('/api/auth/login', {
+      const response = await apiRequest<{ message: string }>('/api/auth/verify-otp', {
         method: 'POST',
-        body: {
-          email: forgotEmail,
-          password: forgotTempPassword,
-        },
+        body: { email: forgotEmail, otp: forgotOtp },
       });
-
-      if (!loginResponse.token) {
-        throw new Error('Login failed: No token received');
-      }
-
-      localStorage.setItem('jwt_token', loginResponse.token);
-
-      const userProfile = await apiRequest<{
-        id: string;
-        email: string;
-        name: string;
-        role: Role;
-        group?: ClubGroupType;
-      }>('/api/auth/profile', { auth: true });
-
-      toastSuccess(`Welcome back, ${userProfile.name}!`);
-      setForgotOpen(false);
-      onLogin(userProfile, loginResponse.token);
-
+      setForgotSuccess(response.message || 'OTP verified.');
+      setForgotStep(3);
     } catch (err) {
       console.error(err);
-      setForgotError(getErrorMessage(err, 'Invalid temporary password. Please try again.'));
+      setForgotError(getErrorMessage(err, 'Invalid OTP. Please try again.'));
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess('');
+
+    if (!forgotNewPassword || !forgotConfirmPassword) {
+      setForgotError('Please fill in all fields.');
+      return;
+    }
+
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError('Passwords do not match.');
+      return;
+    }
+
+    if (forgotNewPassword.length < 6) {
+      setForgotError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const response = await apiRequest<{ message: string }>('/api/auth/reset-password', {
+        method: 'POST',
+        body: { email: forgotEmail, otp: forgotOtp, newPassword: forgotNewPassword },
+      });
+      toastSuccess(response.message || 'Password reset successfully. You can now log in.');
+      setForgotOpen(false);
+      setForgotStep(1);
+      setForgotEmail('');
+      setForgotOtp('');
+      setForgotNewPassword('');
+      setForgotConfirmPassword('');
+    } catch (err) {
+      console.error(err);
+      setForgotError(getErrorMessage(err, 'Failed to reset password.'));
     } finally {
       setForgotLoading(false);
     }
@@ -244,7 +306,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </motion.div>
               <h1 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight">SBG</h1>
               <p className="text-textSecondary mt-2 text-sm font-medium">
-                Slot Booking Made Easy
+                Campus Life Made Easy
               </p>
             </div>
 
@@ -284,14 +346,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                           <FormItem>
                             <FormLabel className="text-textSecondary font-semibold text-sm">Group Category</FormLabel>
                             <FormControl>
-                              <select
-                                className="flex h-11 w-full rounded-xl border border-borderSoft bg-transparent px-3 py-2 text-sm text-textPrimary placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50 appearance-none [&>option]:bg-popover"
-                                {...field}
-                              >
-                                <option value="A">Group A (Academic/Tech)</option>
-                                <option value="B">Group B (Cultural)</option>
-                                <option value="C">Group C (Sports)</option>
-                              </select>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="h-11 rounded-xl border border-borderSoft bg-transparent px-3 py-2 text-sm text-textPrimary placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand w-full">
+                                    <SelectValue placeholder="Select group category" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-popover border-borderSoft">
+                                  <SelectItem value="A">Group A (Academic/Tech)</SelectItem>
+                                  <SelectItem value="B">Group B (Cultural)</SelectItem>
+                                  <SelectItem value="C">Group C (Sports)</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -336,7 +402,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 setForgotError('');
                                 setForgotSuccess('');
                                 setForgotEmail(form.getValues('email') || '');
-                                setForgotTempPassword('');
+                                setForgotOtp('');
+                                setForgotNewPassword('');
+                                setForgotConfirmPassword('');
                                 setForgotStep(1);
                                 setForgotOpen(true);
                               }}
@@ -398,17 +466,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <DialogContent className="sm:max-w-[420px] rounded-2xl bg-white/95 dark:bg-[#0A0F1F]/95 backdrop-blur-xl border border-borderSoft/50 dark:border-white/10 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-textPrimary">
-              {forgotStep === 1 ? 'Reset Password' : 'Enter Temporary Password'}
+              {forgotStep === 1 && 'Reset Password'}
+              {forgotStep === 2 && 'Enter Verification Code'}
+              {forgotStep === 3 && 'Create New Password'}
             </DialogTitle>
             <DialogDescription className="text-textMuted mt-1">
-              {forgotStep === 1 
-                ? "Enter your official email address and we'll send you a temporary password to access your account."
-                : `A temporary password has been sent to ${forgotEmail}. Enter it below to sign in directly.`}
+              {forgotStep === 1 && "Enter your official email address and we'll send you a 6-digit code."}
+              {forgotStep === 2 && `We've sent a 6-digit code to ${forgotEmail}. Please enter it below.`}
+              {forgotStep === 3 && "Please enter your new password."}
             </DialogDescription>
           </DialogHeader>
 
-          {forgotStep === 1 ? (
-            <form onSubmit={handleRequestTempPassword} className="space-y-4 py-2">
+          {forgotStep === 1 && (
+            <form onSubmit={handleRequestOtp} className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="forgot-email" className="text-textSecondary font-semibold text-sm">Email Address</Label>
                 <div className="relative">
@@ -448,26 +518,32 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   {forgotLoading ? (
                     <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    'Send Temp Password'
+                    'Send Code'
                   )}
                 </Button>
               </DialogFooter>
             </form>
-          ) : (
-            <form onSubmit={handleTempPasswordLogin} className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="forgot-temp-password" className="text-textSecondary font-semibold text-sm">Temporary Password</Label>
-                <div className="relative">
-                  <Lock size={18} className="absolute left-3.5 top-3.5 text-textMuted z-10" />
-                  <Input
-                    id="forgot-temp-password"
-                    type="password"
-                    required
-                    placeholder="Enter temporary password"
-                    value={forgotTempPassword}
-                    onChange={(e) => setForgotTempPassword(e.target.value)}
-                    className="pl-11 h-12 rounded-xl"
-                  />
+          )}
+
+          {forgotStep === 2 && (
+            <form onSubmit={handleVerifyOtp} className="space-y-4 py-2">
+              <div className="space-y-4">
+                <Label htmlFor="forgot-otp" className="text-textSecondary font-semibold text-sm text-center block">6-Digit Code</Label>
+                <div className="flex justify-center gap-2 sm:gap-3">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <Input
+                      key={index}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      ref={(el) => { otpRefs.current[index] = el; }}
+                      value={forgotOtp[index] || ''}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      onPaste={handleOtpPaste}
+                      className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl focus:scale-105 transition-all"
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -494,13 +570,85 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={forgotLoading}
+                  disabled={forgotLoading || forgotOtp.length !== 6}
                   className="rounded-xl h-11 text-sm font-semibold bg-linear-to-r from-brand via-[#E84E36] to-[#FDC02F] text-white shadow-md shadow-brand/10 hover:shadow-lg hover:shadow-brand/20 transition-all flex items-center justify-center min-w-[120px]"
                 >
                   {forgotLoading ? (
                     <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    'Sign In'
+                    'Verify Code'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+
+          {forgotStep === 3 && (
+            <form onSubmit={handleResetPassword} className="space-y-4 py-2">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-new-password" className="text-textSecondary font-semibold text-sm">New Password</Label>
+                  <div className="relative">
+                    <Lock size={18} className="absolute left-3.5 top-3.5 text-textMuted z-10" />
+                    <Input
+                      id="forgot-new-password"
+                      type={showForgotNewPassword ? "text" : "password"}
+                      required
+                      placeholder="Enter new password"
+                      value={forgotNewPassword}
+                      onChange={(e) => setForgotNewPassword(e.target.value)}
+                      className="pl-11 pr-10 h-12 rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-textMuted hover:text-textPrimary cursor-pointer focus:outline-none"
+                    >
+                      {showForgotNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-confirm-password" className="text-textSecondary font-semibold text-sm">Confirm Password</Label>
+                  <div className="relative">
+                    <Lock size={18} className="absolute left-3.5 top-3.5 text-textMuted z-10" />
+                    <Input
+                      id="forgot-confirm-password"
+                      type={showForgotConfirmPassword ? "text" : "password"}
+                      required
+                      placeholder="Confirm new password"
+                      value={forgotConfirmPassword}
+                      onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                      className="pl-11 pr-10 h-12 rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-textMuted hover:text-textPrimary cursor-pointer focus:outline-none"
+                    >
+                      {showForgotConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {forgotError && (
+                <Alert variant="destructive" className="rounded-xl">
+                  <AlertDescription>{forgotError}</AlertDescription>
+                </Alert>
+              )}
+
+              <DialogFooter className="pt-4 sm:space-x-2 flex justify-end gap-2">
+                <Button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="rounded-xl h-11 text-sm font-semibold bg-linear-to-r from-brand via-[#E84E36] to-[#FDC02F] text-white shadow-md shadow-brand/10 hover:shadow-lg hover:shadow-brand/20 transition-all flex items-center justify-center min-w-[120px] w-full"
+                >
+                  {forgotLoading ? (
+                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Reset Password'
                   )}
                 </Button>
               </DialogFooter>

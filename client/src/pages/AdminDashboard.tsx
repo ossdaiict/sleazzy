@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, ChevronRight, AlertCircle, Calendar as CalendarIcon, Users, AlertTriangle, RefreshCw, Plus } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronRight, AlertCircle, Calendar as CalendarIcon, Users, AlertTriangle, RefreshCw, Plus, Check, X } from 'lucide-react';
 import { apiRequest, mapBooking, type ApiBooking, type ApiVenue } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { toastError, toastSuccess } from '../lib/toast';
@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Skeleton } from '../components/ui/skeleton';
 import { Calendar, type CalendarEvent } from '../components/ui/calendar';
 import AddBookingDialog from '../components/AddBookingDialog';
+import RegisterEventDialog from '../components/RegisterEventDialog';
 import { groupBookings } from '../lib/api';
 import { getSocket, SOCKET_EVENTS } from '../lib/socket';
 import { toast } from 'sonner';
@@ -32,6 +33,8 @@ const AdminDashboard: React.FC = () => {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   const [error, setError] = React.useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = React.useState(false);
+  const [isProcessingAction, setIsProcessingAction] = React.useState(false);
 
   const getVenueName = (id: string) => venues.find(v => v.id === id)?.name || id;
 
@@ -120,17 +123,35 @@ const AdminDashboard: React.FC = () => {
   }, [fetchData]);
 
   const handleAction = async (bookingIds: string[], status: 'approved' | 'rejected') => {
+    if (isProcessingAction) return;
+    setIsProcessingAction(true);
     try {
-      await Promise.all(bookingIds.map(id => apiRequest(`/api/admin/bookings/${id}/status`, {
+      await apiRequest('/api/admin/bookings/bulk-status', {
         method: 'PATCH',
         auth: true,
-        body: { status }
-      })));
+        body: { ids: bookingIds, status }
+      });
       toastSuccess(`Booking(s) ${status} successfully`);
       fetchData();
     } catch (err) {
       console.error(`Failed to ${status} booking(s):`, err);
       toastError(err, `Failed to ${status} booking(s). Please try again.`);
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleSendEmail = async (batchId: string | undefined, eventId: string | undefined) => {
+    try {
+      await apiRequest('/api/admin/bookings/send-email', {
+        method: 'POST',
+        auth: true,
+        body: { batchId, eventId },
+      });
+      toastSuccess('Status email sent to the club successfully!');
+    } catch (err) {
+      console.error('Failed to send email:', err);
+      toastError(err, 'Failed to send email. Please try again.');
     }
   };
 
@@ -143,7 +164,7 @@ const AdminDashboard: React.FC = () => {
   const getEventsForDate = (date: Date) => {
     return calendarEvents.filter(e => {
       const eDate = new Date(e.date);
-      return isSameDay(eDate, date);
+      return isSameDay(eDate, date) && (e.status === 'approved' || e.status === 'partial');
     });
   };
 
@@ -151,7 +172,7 @@ const AdminDashboard: React.FC = () => {
 
   // Normalize to local midnight so DayPicker's modifier matching works
   const eventDates = React.useMemo(() =>
-    calendarEvents.map(e => {
+    calendarEvents.filter(e => e.status === 'approved' || e.status === 'partial').map(e => {
       const d = new Date(e.date);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     }),
@@ -159,15 +180,21 @@ const AdminDashboard: React.FC = () => {
   );
 
   const calendarEventsWithVenue: CalendarEvent[] = React.useMemo(() =>
-    calendarEvents.map(e => ({
-      eventName: e.eventName,
-      clubName: e.clubName,
-      date: e.date,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      venueName: e.venueName || e.venueIds.map(getVenueName).join(', '),
-      status: e.status,
-    })),
+    calendarEvents.filter(e => e.status === 'approved' || e.status === 'partial').map(e => {
+      // For partial bookings, only show the names of approved venues
+      const approvedVenueName = e.status === 'partial'
+        ? e.bookings.filter(b => b.status === 'approved').map(b => getVenueName(b.venueId)).join(', ')
+        : (e.venueName || e.venueIds.map(getVenueName).join(', '));
+      return {
+        eventName: e.eventName,
+        clubName: e.clubName,
+        date: e.date,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        venueName: approvedVenueName || e.venueName || e.venueIds.map(getVenueName).join(', '),
+        status: e.status,
+      };
+    }),
     [calendarEvents, venues]
   );
 
@@ -179,7 +206,7 @@ const AdminDashboard: React.FC = () => {
         className="space-y-6 sm:space-y-8"
       >
         <div className="min-w-0">
-          <h2 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight">Admin Dashboard</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight leading-tight">Admin Dashboard</h2>
         </div>
         <Alert variant="destructive" className="rounded-xl">
           <AlertTriangle size={16} />
@@ -230,16 +257,26 @@ const AdminDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground tracking-tighter">Admin Dashboard</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground tracking-tighter leading-tight">Admin Dashboard</h2>
           <p className="text-textSecondary mt-2 sm:mt-3 text-sm sm:text-base font-medium max-w-2xl">Monitor venue bookings, manage approvals, and track system performance.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              onClick={() => setAddDialogOpen(true)}
-              className="gap-2 rounded-xl h-10 font-semibold shadow-sm shadow-brand/15"
-            >
-              <Plus size={16} />
-              Add Event
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => setRegisterDialogOpen(true)}
+                className="gap-2 rounded-xl h-10 font-semibold shadow-sm border-borderSoft hover:bg-hoverSoft"
+              >
+                <Plus size={16} />
+                Register Event
+              </Button>
+              <Button
+                onClick={() => setAddDialogOpen(true)}
+                className="gap-2 rounded-xl h-10 font-semibold shadow-sm shadow-brand/15 bg-brand text-bgMain hover:opacity-90"
+              >
+                <CalendarIcon size={16} />
+                Book Venues
+              </Button>
+            </div>
             <Button
               variant="outline"
               onClick={exportAllEvents}
@@ -428,9 +465,19 @@ const AdminDashboard: React.FC = () => {
                 <CardTitle className="text-lg sm:text-xl">All Events</CardTitle>
                 <CardDescription className="mt-1">Complete list of bookings visible to admin</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap">
-                Export CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild className="hidden sm:flex whitespace-nowrap border-[1.5px]">
+                  <Link to="/admin/requests">View All</Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportAllEvents} disabled={isLoading || calendarEvents.length === 0} className="whitespace-nowrap border-[1.5px] border-slate-300 dark:border-slate-600">
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+            <div className="sm:hidden px-4 pt-4 pb-2">
+               <Button variant="outline" size="sm" asChild className="w-full border-[1.5px]">
+                  <Link to="/admin/requests">View All Events</Link>
+                </Button>
             </div>
           </CardHeader>
 
@@ -457,7 +504,7 @@ const AdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {calendarEvents.map((evt, index) => (
+                    {calendarEvents.slice(0, 5).map((evt, index) => (
                       <motion.tr
                         key={evt.batchId || evt.ids[0]}
                         initial={{ opacity: 0, x: -20 }}
@@ -528,7 +575,7 @@ const AdminDashboard: React.FC = () => {
                 <CardTitle className="text-lg sm:text-xl">Pending Requests</CardTitle>
                 <CardDescription className="mt-1">Requests requiring immediate attention (Category B or Conflicts)</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild className="border-[1.5px] border-slate-300 dark:border-slate-600">
                 <Link to="/admin/requests">
                   View All <ChevronRight size={16} />
                 </Link>
@@ -547,7 +594,7 @@ const AdminDashboard: React.FC = () => {
                   <p className="text-textMuted">No pending requests.</p>
                 </div>
               ) : (
-                pendingRequests.map((req, index) => (
+                pendingRequests.slice(0, 5).map((req, index) => (
                   <motion.div
                     key={req.batchId || req.ids?.[0] || index}
                     initial={{ opacity: 0, x: -20 }}
@@ -565,8 +612,44 @@ const AdminDashboard: React.FC = () => {
                           <span className="text-sm text-textMuted">{new Date(req.date).toLocaleDateString()}</span>
                         </div>
                         <h4 className="text-base sm:text-lg font-medium text-foreground">{req.eventName}</h4>
-                        <div className="mt-1 text-sm text-textMuted">
-                          Requested Venue(s): <span className="font-semibold text-foreground">{req.venueName || req.venueIds.map(getVenueName).join(', ')}</span> ({req.startTime} - {req.endTime})
+                        <div className="mt-2 text-sm text-textMuted">
+                          <div className="mb-2">Time: {req.startTime} - {req.endTime}</div>
+                          <div className="flex flex-col gap-2">
+                            {req.bookings.map(booking => (
+                              <div key={booking.id} className="flex items-center justify-between bg-background border border-borderSoft rounded-md p-2 text-sm">
+                                <span className="font-medium text-foreground">{getVenueName(booking.venueId)}</span>
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  <Badge variant={booking.status === 'approved' ? 'success' : booking.status === 'rejected' ? 'destructive' : 'pending'} className="text-[10px] h-5 mr-1">
+                                    {booking.status.toUpperCase()}
+                                  </Badge>
+                                  {booking.status !== 'rejected' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-textMuted hover:text-error"
+                                      onClick={() => handleAction([booking.id], 'rejected')}
+                                      title="Reject this venue"
+                                      disabled={isProcessingAction}
+                                    >
+                                      <X size={14} />
+                                    </Button>
+                                  )}
+                                  {booking.status !== 'approved' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-primary hover:text-primary/80"
+                                      onClick={() => handleAction([booking.id], 'approved')}
+                                      title="Approve this venue"
+                                      disabled={isProcessingAction}
+                                    >
+                                      <Check size={14} />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                         {req.permissionsLink && (
                           <div className="mt-1">
@@ -587,10 +670,21 @@ const AdminDashboard: React.FC = () => {
 
                       <div className="flex items-center gap-2 sm:gap-3">
                         <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => handleSendEmail(req.batchId, undefined)} // For dashboard pending requests we only have batchId easily available in req
+                          title="Send an email to the club with the current status of all venues in this booking"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                          <span className="hidden sm:inline">Send Mail</span>
+                        </Button>
+                        <Button
                           variant="destructive"
                           size="sm"
                           className="flex items-center gap-2"
                           onClick={() => handleAction(req.ids, 'rejected')}
+                          disabled={isProcessingAction}
                         >
                           <XCircle size={16} />
                           <span className="hidden sm:inline">Reject</span>
@@ -599,6 +693,7 @@ const AdminDashboard: React.FC = () => {
                           size="sm"
                           className="flex items-center gap-2"
                           onClick={() => handleAction(req.ids, 'approved')}
+                          disabled={isProcessingAction}
                         >
                           <CheckCircle size={16} />
                           <span className="hidden sm:inline">Approve</span>
@@ -617,6 +712,12 @@ const AdminDashboard: React.FC = () => {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         onCreated={fetchData}
+      />
+      <RegisterEventDialog
+        isOpen={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        currentUser={{ role: 'admin' } as any}
+        onEventCreated={fetchData}
       />
     </motion.div>
   );

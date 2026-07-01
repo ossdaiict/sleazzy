@@ -47,9 +47,9 @@ const ClubCommittee: React.FC<ClubCommitteeProps> = ({ user }) => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight flex items-center gap-2">
-            <CalendarIcon className="text-brand" size={28} />
-            {entityType} Events
+          <h1 className="text-2xl sm:text-3xl font-bold text-textPrimary tracking-tight flex items-center gap-2 leading-tight">
+            <CalendarIcon className="text-brand shrink-0" size={28} />
+            <span className="whitespace-normal">{entityType} Events</span>
           </h1>
           <p className="text-textMuted mt-1 text-sm sm:text-base">
             Register and manage your {entityType.toLowerCase()}'s list of events.

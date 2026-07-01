@@ -19,7 +19,7 @@ export interface Club {
 export interface User {
   id?: string;
   email: string;
-  name: string; // Display name (e.g., "Programming Club" or "Sleazzy Admin")
+  name: string; // Display name (e.g., "Programming Club" or "SBG Team Admin")
   role: Role;
   group?: ClubGroupType; // Optional, for clubs
   clubId?: string;
@@ -51,6 +51,7 @@ export interface AppEvent {
   venue: string | null;
   dynamic_end_date?: string;
   event_type?: EventType;
+  status?: BookingStatus | string;
   created_at: string;
   updated_at: string;
 }

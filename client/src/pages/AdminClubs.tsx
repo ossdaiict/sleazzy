@@ -10,10 +10,11 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Skeleton } from '../components/ui/skeleton';
-import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download, Plus } from 'lucide-react';
+import { Edit2, Trash2, CalendarDays, ExternalLink, X, Search, Users, Download, Plus, Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
-import { Booking } from '../types';
+import { AppEvent } from '../types';
 import { exportRosterToExcel, ExportClubMember } from '../lib/excelExport';
 
 interface ApiClub {
@@ -21,6 +22,8 @@ interface ApiClub {
     name: string;
     email: string;
     group_category: string;
+    organization_type: string;
+    member_tag?: string;
     created_at: string;
 }
 
@@ -33,13 +36,13 @@ const AdminClubs: React.FC = () => {
     // Edit State
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingClub, setEditingClub] = useState<ApiClub | null>(null);
-    const [editFormData, setEditFormData] = useState({ name: '', groupCategory: '' });
+    const [editFormData, setEditFormData] = useState({ name: '', groupCategory: '', organizationType: 'club', memberTag: '' });
     const [isSaving, setIsSaving] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
     // Add State
     const [addDialogOpen, setAddDialogOpen] = useState(false);
-    const [addFormData, setAddFormData] = useState({ name: '', email: '', password: '', groupCategory: 'A' });
+    const [addFormData, setAddFormData] = useState({ name: '', email: '', password: '', groupCategory: 'A', organizationType: 'club' });
     const [isAdding, setIsAdding] = useState(false);
 
     // Delete State
@@ -50,17 +53,39 @@ const AdminClubs: React.FC = () => {
     // Events State
     const [eventsSheetOpen, setEventsSheetOpen] = useState(false);
     const [selectedClub, setSelectedClub] = useState<ApiClub | null>(null);
-    const [clubEvents, setClubEvents] = useState<Booking[]>([]);
+    const [clubEvents, setClubEvents] = useState<AppEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+
+    // SBG Settings State
+    const [sbgSettingsOpen, setSbgSettingsOpen] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+    const [sbgSettings, setSbgSettings] = useState({
+        sbg_constitution_link: '',
+        sbg_linkedin: '',
+        sbg_email: ''
+    });
+
+    const fetchSbgSettings = async () => {
+        try {
+            const config = await apiRequest<Record<string, string>>('/api/settings', { auth: true });
+            setSbgSettings({
+                sbg_constitution_link: config.sbg_constitution_link || '',
+                sbg_linkedin: config.sbg_linkedin || '',
+                sbg_email: config.sbg_email || ''
+            });
+        } catch (err) {
+            console.error('Failed to fetch SBG settings', err);
+        }
+    };
 
     const handleExportRoster = async () => {
         setIsExporting(true);
         try {
             const data = await apiRequest<ExportClubMember[]>('/api/admin/club-members/all', { auth: true });
             exportRosterToExcel(data);
-            toastSuccess('Roster exported successfully');
+            toastSuccess('Member list exported successfully');
         } catch (err) {
-            toastError(err, 'Failed to export roster');
+            toastError(err, 'Failed to export member list');
         } finally {
             setIsExporting(false);
         }
@@ -74,9 +99,9 @@ const AdminClubs: React.FC = () => {
             const data = await apiRequest<ExportClubMember[]>(`/api/club-members?clubId=${club.id}`, { auth: true });
             const enriched = data.map(m => ({ ...m, club_name: club.name }));
             exportRosterToExcel(enriched);
-            toastSuccess(`${club.name} roster exported successfully`);
+            toastSuccess(`${club.name} member list exported successfully`);
         } catch (err) {
-            toastError(err, 'Failed to export club roster');
+            toastError(err, 'Failed to export club member list');
         } finally {
             setExportingClubId(null);
         }
@@ -96,7 +121,25 @@ const AdminClubs: React.FC = () => {
 
     useEffect(() => {
         fetchClubs();
+        fetchSbgSettings();
     }, []);
+
+    const saveSbgSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            await apiRequest('/api/settings', {
+                method: 'POST',
+                auth: true,
+                body: sbgSettings
+            });
+            toastSuccess('SBG Settings saved successfully');
+            setSbgSettingsOpen(false);
+        } catch (error: any) {
+            toastError(error, 'Failed to save SBG settings');
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
 
     const saveAdd = async () => {
         if (!addFormData.name.trim() || !addFormData.email.trim() || !addFormData.password.trim()) {
@@ -111,11 +154,12 @@ const AdminClubs: React.FC = () => {
                     email: addFormData.email,
                     password: addFormData.password,
                     groupCategory: addFormData.groupCategory,
+                    organizationType: addFormData.organizationType,
                 },
             });
             toastSuccess('Club added successfully');
             setAddDialogOpen(false);
-            setAddFormData({ name: '', email: '', password: '', groupCategory: 'A' });
+            setAddFormData({ name: '', email: '', password: '', groupCategory: 'A', organizationType: 'club' });
             fetchClubs();
         } catch (err) {
             toastError(err, 'Failed to add club');
@@ -126,7 +170,12 @@ const AdminClubs: React.FC = () => {
 
     const handleEditClick = (club: ApiClub) => {
         setEditingClub(club);
-        setEditFormData({ name: club.name, groupCategory: club.group_category || 'A' });
+        setEditFormData({ 
+            name: club.name, 
+            groupCategory: club.group_category || 'A',
+            organizationType: club.organization_type || 'club',
+            memberTag: club.member_tag || ''
+        });
         setEditDialogOpen(true);
     };
 
@@ -140,6 +189,8 @@ const AdminClubs: React.FC = () => {
                 body: {
                     name: editFormData.name,
                     group_category: editFormData.groupCategory,
+                    organization_type: editFormData.organizationType,
+                    member_tag: editFormData.memberTag,
                 },
             });
             toastSuccess('Club updated successfully');
@@ -180,23 +231,8 @@ const AdminClubs: React.FC = () => {
         setEventsSheetOpen(true);
         setIsLoadingEvents(true);
         try {
-            const data = await apiRequest<any[]>(`/api/admin/clubs/${club.id}/bookings`, { auth: true });
-            // Map properties from backend to frontend expectations
-            setClubEvents(data.map(e => ({
-                id: e.id,
-                eventName: e.event_name,
-                clubId: e.club_id,
-                clubName: e.clubs?.name,
-                venueId: e.venue_id,
-                venueName: e.venues?.name,
-                date: e.start_time,
-                startTime: new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                endTime: new Date(e.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                status: e.status,
-                eventType: e.event_type,
-                expectedAttendees: e.expected_attendees,
-                isPublic: e.is_public
-            })));
+            const data = await apiRequest<AppEvent[]>(`/api/admin/clubs/${club.id}/events`, { auth: true });
+            setClubEvents(data);
         } catch (err) {
             toastError(err, 'Failed to fetch events for club');
         } finally {
@@ -217,10 +253,17 @@ const AdminClubs: React.FC = () => {
         >
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tighter">Manage Clubs</h2>
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tighter leading-tight">Manage Clubs</h2>
                     <p className="text-textSecondary mt-2 text-base font-medium">View, edit, or remove clubs from the system.</p>
                 </div>
                 <div className="flex items-center gap-2.5 self-start md:self-end">
+                    <Button
+                        onClick={() => setSbgSettingsOpen(true)}
+                        className="gap-1.5 rounded-xl h-10 font-semibold border border-brand/20 bg-brand/5 text-brand hover:bg-brand/10 transition-all"
+                    >
+                        <Settings size={16} />
+                        SBG Settings
+                    </Button>
                     <Button
                         onClick={() => setAddDialogOpen(true)}
                         className="gap-1.5 rounded-xl h-10 font-semibold bg-brand text-white hover:bg-brandLink transition-all shadow-md shadow-brand/10 hover:shadow-brand/20"
@@ -231,21 +274,21 @@ const AdminClubs: React.FC = () => {
                     <Button
                         onClick={handleExportRoster}
                         disabled={isExporting}
-                        className="gap-2 rounded-xl h-10 font-semibold border border-borderSoft bg-card text-textSecondary hover:bg-hoverSoft shadow-sm"
+                        className="gap-2 rounded-xl h-10 font-semibold border-[1.5px] border-slate-300 dark:border-slate-600 bg-card text-textSecondary hover:bg-hoverSoft shadow-sm"
                     >
                         <Download size={16} />
-                        {isExporting ? 'Exporting...' : 'Export Roster (Excel)'}
+                        {isExporting ? 'Exporting...' : 'Export Members (Excel)'}
                     </Button>
                 </div>
             </div>
 
             <Card className="border border-borderSoft rounded-lg overflow-hidden bg-card shadow-sm">
-                <div className="p-4 border-b border-borderSoft flex items-center bg-card/50">
-                    <div className="relative flex-1 max-w-sm">
+                <div className="p-4 border-b border-borderSoft flex flex-col sm:flex-row sm:items-center bg-card/50">
+                    <div className="relative w-full sm:max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textMuted h-4 w-4" />
                         <Input
                             placeholder="Search clubs by name or email..."
-                            className="pl-9 bg-background/50 border-borderSoft"
+                            className="pl-9 bg-background/50 border-borderSoft w-full max-w-full"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                         />
@@ -311,7 +354,7 @@ const AdminClubs: React.FC = () => {
                                                     className="h-8 px-2 text-textSecondary hover:text-brand"
                                                     onClick={() => handleExportSingleClub(club)}
                                                     disabled={exportingClubId !== null}
-                                                    title="Export Club Roster"
+                                                    title="Export Member List"
                                                 >
                                                     <Download className="h-4 w-4 mr-1.5" />
                                                     <span className="hidden sm:inline">
@@ -395,16 +438,36 @@ const AdminClubs: React.FC = () => {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="add-category">Group Category</Label>
-                            <select
-                                id="add-category"
-                                className="flex h-10 w-full rounded-lg border border-borderSoft bg-transparent px-3 py-2 text-sm text-textPrimary focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand [&>option]:bg-popover"
+                            <Select
                                 value={addFormData.groupCategory}
-                                onChange={e => setAddFormData({ ...addFormData, groupCategory: e.target.value })}
+                                onValueChange={v => setAddFormData({ ...addFormData, groupCategory: v })}
                             >
-                                <option value="A">Group A (Academic/Tech)</option>
-                                <option value="B">Group B (Cultural)</option>
-                                <option value="C">Group C (Sports)</option>
-                            </select>
+                                <SelectTrigger id="add-category" className="w-full h-10 border-borderSoft bg-transparent">
+                                    <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-borderSoft">
+                                    <SelectItem value="A">Group A (Academic/Tech)</SelectItem>
+                                    <SelectItem value="B">Group B (Cultural)</SelectItem>
+                                    <SelectItem value="C">Group C (Sports)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="add-org-type">Organization Type</Label>
+                            <Select
+                                value={addFormData.organizationType}
+                                onValueChange={v => setAddFormData({ ...addFormData, organizationType: v })}
+                            >
+                                <SelectTrigger id="add-org-type" className="w-full h-10 border-borderSoft bg-transparent">
+                                    <SelectValue placeholder="Select Org Type" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-borderSoft">
+                                    <SelectItem value="club">Club</SelectItem>
+                                    <SelectItem value="committee">Committee</SelectItem>
+                                    <SelectItem value="organisation">Organisation</SelectItem>
+                                    <SelectItem value="other">Other (Hidden from directory)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <DialogFooter>
@@ -434,16 +497,46 @@ const AdminClubs: React.FC = () => {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="category">Group Category</Label>
-                            <select
-                                id="category"
-                                className="flex h-10 w-full rounded-lg border border-borderSoft bg-transparent px-3 py-2 text-sm text-textPrimary focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand [&>option]:bg-popover"
+                            <Select
                                 value={editFormData.groupCategory}
-                                onChange={e => setEditFormData({ ...editFormData, groupCategory: e.target.value })}
+                                onValueChange={v => setEditFormData({ ...editFormData, groupCategory: v })}
                             >
-                                <option value="A">Group A (Academic/Tech)</option>
-                                <option value="B">Group B (Cultural)</option>
-                                <option value="C">Group C (Sports)</option>
-                            </select>
+                                <SelectTrigger id="category" className="w-full h-10 border-borderSoft bg-transparent">
+                                    <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-borderSoft">
+                                    <SelectItem value="A">Group A (Academic/Tech)</SelectItem>
+                                    <SelectItem value="B">Group B (Cultural)</SelectItem>
+                                    <SelectItem value="C">Group C (Sports)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="org-type">Organization Type</Label>
+                            <Select
+                                value={editFormData.organizationType}
+                                onValueChange={v => setEditFormData({ ...editFormData, organizationType: v })}
+                            >
+                                <SelectTrigger id="org-type" className="w-full h-10 border-borderSoft bg-transparent">
+                                    <SelectValue placeholder="Select Org Type" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-borderSoft">
+                                    <SelectItem value="club">Club</SelectItem>
+                                    <SelectItem value="committee">Committee</SelectItem>
+                                    <SelectItem value="organisation">Organisation</SelectItem>
+                                    <SelectItem value="other">Other (Hidden from directory)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="member-tag">Member Tag (Max 30 chars)</Label>
+                            <Input
+                                id="member-tag"
+                                placeholder="e.g. Official Campus Committee"
+                                maxLength={30}
+                                value={editFormData.memberTag}
+                                onChange={e => setEditFormData({ ...editFormData, memberTag: e.target.value })}
+                            />
                         </div>
                     </div>
                     <DialogFooter>
@@ -494,40 +587,105 @@ const AdminClubs: React.FC = () => {
                                 No events found for this club.
                             </div>
                         ) : (
-                            clubEvents.map(event => (
+                            clubEvents.map(event => {
+                                const now = new Date();
+                                const startDate = new Date(event.date);
+                                const endDate = event.dynamic_end_date ? new Date(event.dynamic_end_date) : new Date(startDate);
+                                endDate.setHours(23, 59, 59, 999);
+                                
+                                let timelineStatus = 'Ongoing';
+                                let badgeVariant: 'success' | 'outline' | 'secondary' = 'success';
+                                if (now < startDate) {
+                                    timelineStatus = 'Upcoming';
+                                    badgeVariant = 'outline';
+                                } else if (now > endDate) {
+                                    timelineStatus = 'Completed';
+                                    badgeVariant = 'secondary';
+                                }
+
+                                return (
                                 <Card key={event.id} className="rounded-lg bg-card border border-borderSoft hover:border-brand/50 transition-colors shadow-sm">
                                     <CardContent className="p-4">
                                         <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-semibold text-textPrimary leading-tight pr-4">{event.eventName}</h4>
+                                            <h4 className="font-semibold text-textPrimary leading-tight pr-4">{event.name}</h4>
                                             <Badge
-                                                variant={event.status === 'approved' ? 'success' : event.status === 'rejected' ? 'destructive' : 'pending'}
+                                                variant={badgeVariant}
                                                 className="text-[10px] px-1.5 py-0 h-5 shrink-0"
                                             >
-                                                {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                                                {timelineStatus}
                                             </Badge>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-2 text-sm mt-3">
                                             <div>
-                                                <span className="text-textMuted text-xs block uppercase tracking-wider mb-0.5">Date & Time</span>
+                                                <span className="text-textMuted text-xs block uppercase tracking-wider mb-0.5">Date</span>
                                                 <div className="font-medium text-textSecondary">{new Date(event.date).toLocaleDateString()}</div>
-                                                <div className="text-xs text-textMuted">{event.startTime} - {event.endTime}</div>
                                             </div>
                                             <div>
                                                 <span className="text-textMuted text-xs block uppercase tracking-wider mb-0.5">Venue</span>
-                                                <div className="font-medium text-textSecondary truncate max-w-full" title={event.venueName}>{event.venueName}</div>
-                                                {event.eventType === 'co_curricular' && (
+                                                <div className="font-medium text-textSecondary truncate max-w-full" title={event.venue}>{event.venue}</div>
+                                                {event.event_type === 'co_curricular' && (
                                                     <div className="text-xs text-brand mt-0.5 font-medium">Co-curricular</div>
                                                 )}
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
-                            ))
+                                )
+                            })
                         )}
                     </div>
                 </SheetContent>
             </Sheet>
+
+            {/* SBG Settings Dialog */}
+            <Dialog open={sbgSettingsOpen} onOpenChange={setSbgSettingsOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>SBG Settings</DialogTitle>
+                        <DialogDescription>Manage public information shown on the About SBG page.</DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Constitution Link (URL)</Label>
+                            <Input
+                                value={sbgSettings.sbg_constitution_link}
+                                onChange={e => setSbgSettings({ ...sbgSettings, sbg_constitution_link: e.target.value })}
+                                placeholder="https://..."
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>SBG LinkedIn (URL)</Label>
+                            <Input
+                                value={sbgSettings.sbg_linkedin}
+                                onChange={e => setSbgSettings({ ...sbgSettings, sbg_linkedin: e.target.value })}
+                                placeholder="https://linkedin.com/..."
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>SBG Contact Email</Label>
+                            <Input
+                                value={sbgSettings.sbg_email}
+                                onChange={e => setSbgSettings({ ...sbgSettings, sbg_email: e.target.value })}
+                                placeholder="sbg@daiict.ac.in"
+                                type="email"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSbgSettingsOpen(false)}>Cancel</Button>
+                        <Button
+                            className="bg-brand text-white hover:bg-brandLink"
+                            onClick={saveSbgSettings}
+                            disabled={isSavingSettings}
+                        >
+                            {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </motion.div>
     );
 };

@@ -18,8 +18,9 @@ const MEMBER_EDITABLE_FIELDS = ['full_name', 'roll_number', 'email', 'designatio
 router.get('/public', async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT cm.id, cm.club_id, cm.full_name, cm.designation, cm.phone,
-              cm.tenure_start_date, cm.tenure_end_date, c.name as club_name
+      `SELECT cm.id, cm.club_id, cm.full_name, cm.designation, cm.phone, cm.email,
+              cm.tenure_start_date, cm.tenure_end_date, c.name as club_name,
+              c.organization_type
        FROM club_members cm
        JOIN clubs c ON cm.club_id = c.id
        WHERE cm.tenure_end_date IS NULL OR cm.tenure_end_date > CURRENT_DATE

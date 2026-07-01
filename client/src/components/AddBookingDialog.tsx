@@ -18,7 +18,8 @@ import {
     SelectItem,
 } from './ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Calendar } from './ui/calendar';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+import { DatePicker } from './ui/date-picker';
 import { TimePicker } from './ui/time-picker';
 import { apiRequest, ApiVenue } from '../lib/api';
 import { Loader2, Plus, Calendar as CalendarIcon } from 'lucide-react';
@@ -43,16 +44,18 @@ const EVENT_TYPES = [
 
 const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) => {
     const [eventName, setEventName] = useState('');
-    const [sbgClubId, setSbgClubId] = useState<string | null>(null);
+    const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+    const [allClubs, setAllClubs] = useState<Club[]>([]);
     const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [eventType, setEventType] = useState('');
     const [expectedAttendees, setExpectedAttendees] = useState('');
-    const [isPublic, setIsPublic] = useState(false);
+    
+    const [clubEvents, setClubEvents] = useState<any[]>([]);
+    const [selectedEventId, setSelectedEventId] = useState('');
 
-    const [datePickerOpen, setDatePickerOpen] = useState(false);
     const [venues, setVenues] = useState<ApiVenue[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -67,15 +70,31 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
             // Auto-resolve SBG club
             apiRequest<Club[]>('/api/clubs')
                 .then((clubs) => {
+                    setAllClubs(clubs);
                     const sbg = clubs.find((c) =>
                         c.name.toLowerCase().includes('sbg') ||
                         c.name.toLowerCase().includes('student body')
                     );
-                    setSbgClubId(sbg?.id || null);
+                    const clubId = sbg?.id || clubs[0]?.id || null;
+                    setSelectedClubId(clubId);
                 })
-                .catch(() => setSbgClubId(null));
+                .catch(() => {
+                    setSelectedClubId(null);
+                    setAllClubs([]);
+                });
         }
     }, [open]);
+
+    // Fetch events when club changes
+    useEffect(() => {
+        if (selectedClubId) {
+            apiRequest<any[]>(`/api/admin/clubs/${selectedClubId}/events`, { auth: true })
+                .then(setClubEvents)
+                .catch(() => setClubEvents([]));
+        } else {
+            setClubEvents([]);
+        }
+    }, [selectedClubId]);
 
     // Reset form when opened
     useEffect(() => {
@@ -87,27 +106,37 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
             setEndTime('');
             setEventType('');
             setExpectedAttendees('');
-            setIsPublic(false);
+            setSelectedEventId('');
             setError(null);
             setCoCurricularWarning('');
         }
     }, [open]);
 
+    // Sync eventType with selected event
+    useEffect(() => {
+        if (selectedEventId) {
+            const evt = clubEvents.find(e => e.id === selectedEventId);
+            if (evt && evt.event_type) {
+                setEventType(evt.event_type);
+            }
+        }
+    }, [selectedEventId, clubEvents]);
+
     // Co-curricular limit check
     useEffect(() => {
-        if (eventType !== 'co_curricular' || !sbgClubId) {
+        if (eventType !== 'co_curricular' || !selectedClubId) {
             setCoCurricularWarning('');
             return;
         }
 
         apiRequest<{ count: number; limit: number }>(
-            `/api/bookings/co-curricular-count?clubId=${sbgClubId}`,
+            `/api/bookings/co-curricular-count?clubId=${selectedClubId}`,
             { auth: true }
         )
             .then(({ count, limit }) => {
                 if (count >= limit) {
                     setCoCurricularWarning(
-                        `SBG has already booked ${limit} co-curricular events this semester. No more are allowed.`
+                        `This club has already booked ${limit} co-curricular events this semester. (Admin Override Active - You can still book)`
                     );
                 } else if (count === limit - 1) {
                     setCoCurricularWarning(
@@ -118,7 +147,7 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                 }
             })
             .catch(() => setCoCurricularWarning(''));
-    }, [eventType, sbgClubId]);
+    }, [eventType, selectedClubId]);
 
     const toggleVenue = (venueId: string) => {
         setSelectedVenues((prev) =>
@@ -129,12 +158,12 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
     };
 
     const handleCreate = async () => {
-        if (!eventName.trim()) {
-            setError('Event name is required');
+        if (!selectedClubId) {
+            setError('Please select an organizing club.');
             return;
         }
-        if (!sbgClubId) {
-            setError('SBG club not found. Please ensure it exists in the system.');
+        if (!selectedEventId) {
+            setError('Please select an existing event');
             return;
         }
         if (selectedVenues.length === 0) {
@@ -158,37 +187,24 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
             const startDateTime = new Date(`${dateString}T${startTime}:00`);
             const endDateTime = new Date(`${dateString}T${endTime}:00`);
 
-            const createdEvent = await apiRequest<{ id: string }>('/api/events', {
-                method: 'POST',
-                auth: true,
-                body: {
-                    name: eventName.trim(),
-                    date: startDateTime.toISOString(),
-                    end_date: endDateTime.toISOString(),
-                    event_type: eventType || 'open_all',
-                    venue: 'Auto-assigned by Admin',
-                }
-            });
-
             await apiRequest('/api/admin/bookings', {
                 method: 'POST',
                 auth: true,
                 body: {
-                    club_id: sbgClubId,
+                    club_id: selectedClubId,
                     venue_ids: selectedVenues,
-                    event_id: createdEvent.id,
+                    event_id: selectedEventId,
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
                     expected_attendees: expectedAttendees
                         ? parseInt(expectedAttendees)
                         : undefined,
-                    is_public: isPublic,
                 },
             });
             onCreated();
             onOpenChange(false);
         } catch (err: any) {
-            setError(err?.message || 'Failed to create event');
+            setError(err?.message || 'Failed to register/book');
         } finally {
             setSaving(false);
         }
@@ -198,9 +214,9 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Add New Event</DialogTitle>
+                    <DialogTitle>Book Venues</DialogTitle>
                     <DialogDescription>
-                        Create a new event directly. It will be auto-approved.
+                        Book venues for an existing event.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -211,29 +227,42 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                 )}
 
                 <div className="grid gap-4 py-2">
-                    {/* Event Name */}
-                    <div className="grid gap-2">
-                        <Label htmlFor="add-event-name">Event Name</Label>
-                        <Input
-                            id="add-event-name"
-                            value={eventName}
-                            onChange={(e) => setEventName(e.target.value)}
-                            placeholder="Enter event name"
-                            className="bg-card border-borderSoft"
-                        />
-                    </div>
-
-                    {/* Club (fixed to SBG) */}
+                    {/* Club Selection */}
                     <div className="grid gap-2">
                         <Label>Organizing Club</Label>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-borderSoft bg-hoverSoft/50 text-sm text-textPrimary">
-                            <span className="font-medium">SBG</span>
-                            <span className="text-textMuted text-xs">(Student Body Government)</span>
-                        </div>
-                        {!sbgClubId && (
-                            <p className="text-xs text-warning">SBG club not found in system — event creation won't work until it's added.</p>
-                        )}
+                        <Select value={selectedClubId || ''} onValueChange={setSelectedClubId}>
+                            <SelectTrigger className="bg-card border-borderSoft">
+                                <SelectValue placeholder="Select club..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allClubs.map(c => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        {c.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
+
+                    <div className="grid gap-2">
+                        <Label>Select Event</Label>
+                        <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                            <SelectTrigger className="bg-card">
+                                <SelectValue placeholder="Select an event" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {clubEvents.map((evt) => (
+                                    <SelectItem key={evt.id} value={evt.id}>
+                                        {evt.name}
+                                    </SelectItem>
+                                ))}
+                                {clubEvents.length === 0 && (
+                                    <div className="px-2 py-3 text-sm text-textMuted text-center">No events found for this club</div>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
 
                     {/* Venues */}
                     <div className="grid gap-2">
@@ -282,37 +311,11 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                         <div className="grid gap-3 p-3 rounded-md border border-borderSoft bg-card">
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-textSecondary">Date</Label>
-                                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "w-full h-10 justify-start text-left font-medium border-borderSoft hover:bg-hoverSoft transition-all bg-card text-textPrimary rounded-md shadow-sm",
-                                                !date && "text-textMuted"
-                                            )}
-                                            onClick={() => setDatePickerOpen(true)}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4 text-brand opacity-70" />
-                                            {date ? (
-                                                <span>
-                                                    {date.toLocaleDateString('en-US', {
-                                                        weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'
-                                                    })}
-                                                </span>
-                                            ) : (
-                                                <span>Pick a date</span>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-3" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={date}
-                                            onSelect={(d) => { setDate(d); setDatePickerOpen(false); }}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                <DatePicker
+                                    date={date}
+                                    setDate={setDate}
+                                    className="bg-card"
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
@@ -336,22 +339,6 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                         </div>
                     </div>
 
-                    {/* Event Type */}
-                    <div className="grid gap-2">
-                        <Label>Event Type</Label>
-                        <Select value={eventType} onValueChange={setEventType}>
-                            <SelectTrigger className="bg-card">
-                                <SelectValue placeholder="Select type (optional)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {EVENT_TYPES.map((t) => (
-                                    <SelectItem key={t.value} value={t.value}>
-                                        {t.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
 
                     {coCurricularWarning && (
                         <div className={`text-sm rounded-md px-3 py-2 border ${coCurricularWarning.startsWith('SBG has already')
@@ -375,34 +362,6 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                         />
                     </div>
 
-                    {/* Public Visibility */}
-                    <div className="flex items-center justify-between p-3 rounded-md border border-borderSoft bg-card">
-                        <div className="grid gap-0.5">
-                            <Label htmlFor="add-public">Publicly Visible</Label>
-                            <p className="text-xs text-textSecondary">Show on landing page calendar</p>
-                        </div>
-                        <button
-                            id="add-public"
-                            type="button"
-                            role="switch"
-                            aria-checked={isPublic}
-                            onClick={() => setIsPublic(!isPublic)}
-                            className={`
-                                relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full
-                                border-2 border-transparent transition-colors duration-200
-                                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50
-                                ${isPublic ? 'bg-brand' : 'bg-borderSoft'}
-                            `}
-                        >
-                            <span
-                                className={`
-                                    pointer-events-none inline-block h-5 w-5 rounded-full
-                                    bg-white shadow-sm transform transition-transform duration-200
-                                    ${isPublic ? 'translate-x-5' : 'translate-x-0'}
-                                `}
-                            />
-                        </button>
-                    </div>
                 </div>
 
                 <DialogFooter>
@@ -413,13 +372,13 @@ const AddBookingDialog: React.FC<Props> = ({ open, onOpenChange, onCreated }) =>
                     >
                         Cancel
                     </Button>
-                    <Button onClick={handleCreate} disabled={saving || coCurricularWarning.startsWith('SBG has already')} className="gap-2 bg-brand text-bgMain">
+                    <Button onClick={handleCreate} disabled={saving} className="gap-2 bg-brand text-bgMain">
                         {saving ? (
                             <Loader2 size={14} className="animate-spin" />
                         ) : (
                             <Plus size={14} />
                         )}
-                        Create Event
+                        Book Venues
                     </Button>
                 </DialogFooter>
             </DialogContent>
